@@ -50,7 +50,7 @@ get_role_id_by_name() {
         return
     fi
 
-    echo "$BODY" | sed 's/},{/}\n{/g' | grep "\"name\":\"${ROLE_NAME}\"" | grep "\"ouId\":\"${OU_ID}\"" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
+    echo "$BODY" | sed -E 's/\},[[:space:]]*\{/\}\n\{/g' | grep "\"name\":\"${ROLE_NAME}\"" | grep "\"ouId\":\"${OU_ID}\"" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
 get_application_id_by_client_id() {
@@ -65,7 +65,7 @@ get_application_id_by_client_id() {
         return
     fi
 
-    echo "$BODY" | sed 's/},{/}\n{/g' | grep "\"clientId\":\"${CLIENT_ID}\"" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
+    echo "$BODY" | sed -E 's/\},[[:space:]]*\{/\}\n\{/g' | grep "\"clientId\":\"${CLIENT_ID}\"" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
 get_ou_id_by_handle() {
@@ -138,11 +138,13 @@ JSON
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
+    local app_exists_regex="Application already exists|APP-1022"
+
     if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "202" ]]; then
         log_success "${APP_NAME} M2M application created successfully"
         APP_ID=$(extract_first_id "$BODY")
         APP_CLIENT_ID=$(echo "$BODY" | grep -o '"clientId":"[^"]*"' | head -1 | cut -d'"' -f4)
-    elif [[ "$HTTP_CODE" == "409" ]] || ([[ "$HTTP_CODE" == "400" ]] && [[ "$BODY" =~ (Application\ already\ exists|APP-1022) ]]); then
+    elif [[ "$HTTP_CODE" == "409" ]] || ([[ "$HTTP_CODE" == "400" ]] && [[ "$BODY" =~ $app_exists_regex ]]); then
         log_warning "${APP_NAME} M2M application already exists, retrieving ID..."
         APP_ID=$(get_application_id_by_client_id "$CLIENT_ID")
         APP_CLIENT_ID="$CLIENT_ID"

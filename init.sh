@@ -292,7 +292,7 @@ echo ""
 # --- ThunderID Management API helpers -------------------------------------
 
 extract_first_id() {
-    echo "$1" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
+    echo "$1" | jq -r '.. | objects | .id // empty' 2>/dev/null | head -n 1
 }
 
 thunderid_api_call() {
@@ -320,7 +320,7 @@ get_classic_theme_id() {
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
     [ "$HTTP_CODE" != "200" ] && { echo ""; return; }
-    echo "$BODY" | grep -o '{[^}]*"displayName":"Classic"[^}]*}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
+    echo "$BODY" | jq -r '.. | objects | select(.displayName == "Classic") | .id // empty' 2>/dev/null | head -n 1
 }
 
 # Create an M2M (client_credentials) application. On a 409 ("already exists")
