@@ -136,6 +136,14 @@ detect_host_ip() {
                 return 0
             fi
         done
+    elif [[ "$OSTYPE" == msys* ]] || [[ "$OSTYPE" == cygwin* ]] || [[ "$OSTYPE" == win32 ]]; then
+        # Windows (Git Bash / MSYS / Cygwin) - `ipconfig` output ordering isn't
+        # stable (virtual adapters like Hyper-V/WSL can list before the real
+        # LAN adapter), so parsing it is unreliable. Docker Desktop registers
+        # host.docker.internal in the Windows hosts file too, so it resolves
+        # correctly from both the host shell and from inside containers.
+        echo "host.docker.internal"
+        return 0
     else
         # Linux - get first IPv4 address (filter out IPv6)
         ip=$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/) {print $i; exit}}')
@@ -230,7 +238,9 @@ done
 
 print_info "Checking WSO2 Identity Server health..."
 
-for i in $(seq 1 30); do
+WSO2IS_HEALTH_CHECK_ATTEMPTS=30
+
+for i in $(seq 1 $WSO2IS_HEALTH_CHECK_ATTEMPTS); do
     # Use curl with error handling - don't exit on failure
     if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
         https://"$WSO2IS_URL"/console 2>/dev/null); then
@@ -239,14 +249,14 @@ for i in $(seq 1 30); do
             print_success "WSO2 Identity Server is ready (HTTP $STATUS_CODE)"
             break
         else
-            print_info "WSO2 IS responded with HTTP $STATUS_CODE, retrying... ($i/30)"
+            print_info "WSO2 IS responded with HTTP $STATUS_CODE, retrying... ($i/$WSO2IS_HEALTH_CHECK_ATTEMPTS)"
         fi
     else
-        print_info "WSO2 IS not reachable yet, retrying... ($i/30)"
+        print_info "WSO2 IS not reachable yet, retrying... ($i/$WSO2IS_HEALTH_CHECK_ATTEMPTS)"
     fi
 
-    if [ "$i" -eq 30 ]; then
-        print_error "WSO2 Identity Server health check failed after 30 attempts"
+    if [ "$i" -eq $WSO2IS_HEALTH_CHECK_ATTEMPTS ]; then
+        print_error "WSO2 Identity Server health check failed after $WSO2IS_HEALTH_CHECK_ATTEMPTS attempts"
         print_error "Please check if WSO2 IS container is running properly:"
         print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs wso2is"
         print_error ""
@@ -254,7 +264,7 @@ for i in $(seq 1 30); do
         exit 1
     fi
 
-    sleep 2
+    sleep 3
 done
 
 # Step 1: Create initial DCR application to obtain credentials for Management API access
