@@ -28,12 +28,12 @@ services:
   # Stage A: seed the ThunderID image's bundled SQLite DB files into named
   # volumes so thunderid-setup/thunderid see a writable copy.
   thunderid-db-init:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.42.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
     container_name: thunderid-db-init-${ENVIRONMENT:-local}
     # -n (no-clobber): seed only if empty. Recreating this container (e.g. after
     # an unrelated env var change) must never overwrite an already-populated
     # volume - a plain `cp -r` would silently wipe existing ThunderID data.
-    command: sh -c "cp -rn /opt/thunderid/repository/database/* /data/ && (cp -rn /opt/thunderid/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
+    command: sh -c "cp -rn /opt/thunderid/database/* /data/ && (cp -rn /opt/thunderid/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
     volumes:
       - thunderid-db:/data
       - consent-db:/consent-data
@@ -46,7 +46,7 @@ services:
   # Administrator role, Console app) plus our mounted 02-admin-cli.sh (creates
   # the ADMIN_CLI M2M client used by init.sh to mint management tokens).
   thunderid-setup:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.42.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
     container_name: thunderid-setup-${ENVIRONMENT:-local}
     command: ./setup.sh
     depends_on:
@@ -68,7 +68,7 @@ services:
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
     volumes:
-      - thunderid-db:/opt/thunderid/repository/database
+      - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
       - ./config/thunderid/bootstrap/02-admin-cli.sh:/opt/thunderid/bootstrap/02-admin-cli.sh
     restart: "no"
@@ -76,7 +76,7 @@ services:
       - exchange-network
 
   thunderid:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.42.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
     container_name: thunderid-${ENVIRONMENT:-local}
     depends_on:
       thunderid-setup:
@@ -104,9 +104,9 @@ services:
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
     volumes:
-      - thunderid-db:/opt/thunderid/repository/database
+      - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database
-      - ./config/thunderid/deployment.yaml:/opt/thunderid/repository/conf/deployment.yaml
+      - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
     healthcheck:
       test: ["CMD-SHELL", "curl -k -s -o /dev/null https://localhost:${IDP_PORT:-8090}/ || exit 1"]
       interval: 5s
