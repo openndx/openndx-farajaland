@@ -1,0 +1,5 @@
+# Shell scripts get mounted straight into Linux containers and executed
+# there, so they must always check out with LF endings regardless of a
+# developer's local core.autocrlf setting - a stray \r breaks the Linux
+# shell (e.g. "$'\r': command not found").
+*.sh text eol=lf
