@@ -295,7 +295,7 @@ run_die() {
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://${HOST_IP}:9081/public/graphql" \
-        -e "TOKEN_URL=https://${HOST_IP}:9444/oauth2/token" \
+        -e "TOKEN_URL=https://${HOST_IP}:${IDP_PORT:-8090}/oauth2/token" \
         --restart unless-stopped \
         "$DIE_IMAGE"
 

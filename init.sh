@@ -186,11 +186,10 @@ print_success "Detected the Host Machine IP: $HOST_IP"
 export HOST_IP
 
 # Initialize Variables
-WSO2IS_URL=${HOST_IP}:9444
+THUNDERID_URL=${HOST_IP}:${IDP_PORT:-8090}
+ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
+export IDP_PORT="${IDP_PORT:-8090}"
 
-WSO2_ADMIN_USERNAME="${WSO2_ADMIN_USERNAME:-admin}"
-WSO2_ADMIN_PASSWORD="${WSO2_ADMIN_PASSWORD:-admin}"
-WSO2_ADMIN_AUTH_HEADER=$(echo -n "$WSO2_ADMIN_USERNAME:$WSO2_ADMIN_PASSWORD" | base64)
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker-compose)..."
 cd "$NDX_DIR"
@@ -236,184 +235,226 @@ for i in {1..30}; do
     sleep 1
 done
 
-print_info "Checking WSO2 Identity Server health..."
+print_info "Checking ThunderID health..."
 
-WSO2IS_HEALTH_CHECK_ATTEMPTS=30
-
-for i in $(seq 1 $WSO2IS_HEALTH_CHECK_ATTEMPTS); do
-    # Use curl with error handling - don't exit on failure
+for i in $(seq 1 30); do
+    # ThunderID's own convention: any HTTP response (including 401) means the
+    # server is up - don't exit on curl failure, just retry.
     if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
-        https://"$WSO2IS_URL"/console 2>/dev/null); then
+        https://"$THUNDERID_URL"/ 2>/dev/null); then
 
-        if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "302" ]; then
-            print_success "WSO2 Identity Server is ready (HTTP $STATUS_CODE)"
+        if [ -n "$STATUS_CODE" ] && [ "$STATUS_CODE" != "000" ]; then
+            print_success "ThunderID is ready (HTTP $STATUS_CODE)"
             break
         else
-            print_info "WSO2 IS responded with HTTP $STATUS_CODE, retrying... ($i/$WSO2IS_HEALTH_CHECK_ATTEMPTS)"
+            print_info "ThunderID responded with HTTP $STATUS_CODE, retrying... ($i/30)"
         fi
     else
-        print_info "WSO2 IS not reachable yet, retrying... ($i/$WSO2IS_HEALTH_CHECK_ATTEMPTS)"
+        print_info "ThunderID not reachable yet, retrying... ($i/30)"
     fi
 
-    if [ "$i" -eq $WSO2IS_HEALTH_CHECK_ATTEMPTS ]; then
-        print_error "WSO2 Identity Server health check failed after $WSO2IS_HEALTH_CHECK_ATTEMPTS attempts"
-        print_error "Please check if WSO2 IS container is running properly:"
-        print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs wso2is"
+    if [ "$i" -eq 30 ]; then
+        print_error "ThunderID health check failed after 30 attempts"
+        print_error "Please check if the ThunderID containers are running properly:"
+        print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs thunderid thunderid-setup thunderid-db-init"
         print_error ""
         print_error "The script will now exit. Please resolve the issue and try again."
         exit 1
     fi
 
-    sleep 3
+    sleep 2
 done
 
-# Step 1: Create initial DCR application to obtain credentials for Management API access
-print_info "Creating temporary DCR application for Management API access..."
-DCR_RESPONSE=$(curl --silent -X POST https://"$WSO2IS_URL"/api/identity/oauth2/dcr/v1.1/register \
+# Step 1: Mint a system-scoped management token from the admin-cli M2M client.
+# admin-cli (client_id ADMIN_CLI) and its Administrator role grant were already
+# created by config/thunderid/bootstrap/02-admin-cli.sh during the
+# thunderid-setup phase (server ran with security disabled at that point), so
+# no temporary throwaway app is needed here - this single call replaces WSO2's
+# entire temp-DCR-app + scope-granting dance.
+print_info "Minting admin-cli management token..."
+TOKEN_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/oauth2/token \
   --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
-  -d '{
-    "client_name": "TEMPORARY_DCR_APP",
-    "grant_types": ["client_credentials"],
-    "token_type": "OAUTH",
-    "scope": "internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_delete"
-  }')
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -u "ADMIN_CLI:$ADMIN_CLI_SECRET" \
+  -d "grant_type=client_credentials&scope=system")
 
-CURL_EXIT_CODE=$?
+ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
 
-if [ $CURL_EXIT_CODE -ne 0 ]; then
-    print_error "Failed to create temporary DCR application (curl exit code: $CURL_EXIT_CODE)"
+if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+    print_error "Failed to mint admin-cli management token"
+    print_error "Response was: $TOKEN_RESPONSE"
     exit 1
 fi
 
-DCR_CLIENT_ID=$(echo "$DCR_RESPONSE" | jq -r '.client_id')
-DCR_CLIENT_SECRET=$(echo "$DCR_RESPONSE" | jq -r '.client_secret')
-
-if [ "$DCR_CLIENT_ID" = "null" ] || [ -z "$DCR_CLIENT_ID" ]; then
-    print_error "Failed to extract Client ID from DCR response"
-    print_error "Response was: $DCR_RESPONSE"
-    exit 1
-fi
-
-print_success "Temporary DCR application created successfully!"
-print_info "Temporary Client ID: $DCR_CLIENT_ID"
+print_success "Admin-cli management token obtained successfully!"
 echo ""
 
-# Get the ApplicationId, use the endpoint to search for the created application.
-APPLICATION_RESPONSE=$(curl --silent -X GET "https://$WSO2IS_URL/api/server/v1/applications?filter=clientId+eq+$DCR_CLIENT_ID" \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
-)
+# --- ThunderID Management API helpers -------------------------------------
 
-DCR_APPLICATION_ID=$(echo "$APPLICATION_RESPONSE" | jq -r '.applications[0].id')
+extract_first_id() {
+    echo "$1" | jq -r '.. | objects | .id // empty' 2>/dev/null | head -n 1
+}
 
-if [ "$DCR_APPLICATION_ID" = "null" ] || [ -z "$DCR_APPLICATION_ID" ]; then
-    print_error "Failed to extract Client ID from DCR response"
-    print_error "Response was: $APPLICATION_RESPONSE"
+thunderid_api_call() {
+    local method="$1" path="$2" body="${3:-}"
+    local -a curl_args=(-s -S -X "$method" --insecure -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $ACCESS_TOKEN" -w '%{http_code}')
+    [ -n "$body" ] && curl_args+=(-d "$body")
+    curl "${curl_args[@]}" "https://$THUNDERID_URL${path}"
+}
+
+get_ou_id_by_handle() {
+    local OU_HANDLE="$1"
+    local RESPONSE HTTP_CODE BODY
+    RESPONSE=$(thunderid_api_call GET "/organization-units/tree/${OU_HANDLE}")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+    [ "$HTTP_CODE" != "200" ] && { echo ""; return; }
+    extract_first_id "$BODY"
+}
+
+# Look up the image-provided "Classic" theme id so the SPA login screen is themed.
+get_classic_theme_id() {
+    local RESPONSE HTTP_CODE BODY
+    RESPONSE=$(thunderid_api_call GET "/design/themes")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+    [ "$HTTP_CODE" != "200" ] && { echo ""; return; }
+    echo "$BODY" | jq -r '.. | objects | select(.displayName == "Classic") | .id // empty' 2>/dev/null | head -n 1
+}
+
+# Create an M2M (client_credentials) application. On a 409 ("already exists")
+# it's treated as an idempotent no-op rather than a failure.
+create_m2m_application() {
+    local APP_NAME="$1" APP_DESCRIPTION="$2" CLIENT_ID_NEW="$3" CLIENT_SECRET_NEW="$4" OU_ID="$5"
+    local RESPONSE HTTP_CODE BODY
+
+    read -r -d '' APP_PAYLOAD <<JSON || true
+{
+    "name": "${APP_NAME}",
+    "description": "${APP_DESCRIPTION}",
+    "ouId": "${OU_ID}",
+    "isRegistrationFlowEnabled": false,
+    "assertion": { "validityPeriod": 3600 },
+    "inboundAuthConfig": [
+        {
+            "type": "oauth2",
+            "config": {
+                "clientId": "${CLIENT_ID_NEW}",
+                "clientSecret": "${CLIENT_SECRET_NEW}",
+                "grantTypes": ["client_credentials", "refresh_token"],
+                "tokenEndpointAuthMethod": "client_secret_basic",
+                "pkceRequired": false,
+                "publicClient": false,
+                "token": { "accessToken": { "validityPeriod": 3600 } }
+            }
+        }
+    ],
+    "allowedUserTypes": []
+}
+JSON
+
+    RESPONSE=$(thunderid_api_call POST "/applications" "${APP_PAYLOAD}")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+        print_success "${APP_NAME} M2M application created successfully"
+    elif [ "$HTTP_CODE" = "409" ] || echo "$BODY" | grep -qE "Application already exists|APP-1022"; then
+        print_warning "${APP_NAME} M2M application already exists, reusing it"
+    else
+        print_error "Failed to create ${APP_NAME} M2M application (HTTP $HTTP_CODE)"
+        print_error "Response: $BODY"
+        exit 1
+    fi
+}
+
+# Create a SPA (authorization_code + PKCE) application. Idempotent like above.
+create_spa_application() {
+    local APP_NAME="$1" APP_DESCRIPTION="$2" CLIENT_ID_NEW="$3" REDIRECT_URI="$4" OU_ID="$5"
+    local RESPONSE HTTP_CODE BODY
+
+    # Attach the Classic theme (top-level app field) when it was resolved, so
+    # the login screen renders themed.
+    local THEME_FIELD=""
+    [ -n "$CLASSIC_THEME_ID" ] && THEME_FIELD="
+    \"themeId\": \"${CLASSIC_THEME_ID}\","
+
+    read -r -d '' APP_PAYLOAD <<JSON || true
+{
+    "name": "${APP_NAME}",
+    "description": "${APP_DESCRIPTION}",${THEME_FIELD}
+    "ouId": "${OU_ID}",
+    "isRegistrationFlowEnabled": false,
+    "inboundAuthConfig": [
+        {
+            "type": "oauth2",
+            "config": {
+                "clientId": "${CLIENT_ID_NEW}",
+                "redirectUris": ["${REDIRECT_URI}"],
+                "grantTypes": ["authorization_code", "refresh_token"],
+                "responseTypes": ["code"],
+                "tokenEndpointAuthMethod": "none",
+                "pkceRequired": true,
+                "publicClient": true,
+                "token": {
+                    "accessToken": { "validityPeriod": 3600, "userAttributes": ["email"] },
+                    "idToken": { "validityPeriod": 3600 }
+                }
+            }
+        }
+    ],
+    "allowedUserTypes": ["Person"]
+}
+JSON
+
+    RESPONSE=$(thunderid_api_call POST "/applications" "${APP_PAYLOAD}")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+        print_success "${APP_NAME} SPA application created successfully"
+    elif [ "$HTTP_CODE" = "409" ] || echo "$BODY" | grep -qE "Application already exists|APP-1022"; then
+        print_warning "${APP_NAME} SPA application already exists, reusing it"
+    else
+        print_error "Failed to create ${APP_NAME} SPA application (HTTP $HTTP_CODE)"
+        print_error "Response: $BODY"
+        exit 1
+    fi
+}
+# ----------------------------------------------------------------------------
+
+# Look up the default Organization Unit id (image-provided, created by
+# 01-default-resources.sh) - needed as ouId for every application/user below.
+DEFAULT_OU_ID=$(get_ou_id_by_handle "default")
+if [ -z "$DEFAULT_OU_ID" ]; then
+    print_error "Failed to resolve default organization unit"
     exit 1
 fi
-
-print_success "Successfully Obtained Application Id of TEMPORARY_DCR_APP"
-print_info "TEMPORARY_DCR_APP Application ID: $DCR_APPLICATION_ID"
+print_success "Default OU id: $DEFAULT_OU_ID"
 echo ""
 
-# Fetch the id of the Application Authorization category
-APPLICATION_RESOURCE_RESPONSE=$(curl --silent -X GET "https://${WSO2IS_URL}/api/server/v1/api-resources?filter=identifier+eq+%2Fapi%2Fserver%2Fv1%2Fapplications" \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
-)
-
-APPLICATION_MANAGEMENT_RESOURCE_ID=$(echo "$APPLICATION_RESOURCE_RESPONSE" | jq -r '.apiResources[0].id')
-
-if [ "$APPLICATION_MANAGEMENT_RESOURCE_ID" = "null" ] || [ -z "$APPLICATION_MANAGEMENT_RESOURCE_ID" ]; then
-    print_error "Failed to extract Application Resource ID From Response"
-    print_error "Response was: $APPLICATION_RESPONSE"
-    exit 1
+# Look up the Classic theme so the Consent Portal login screen is themed.
+# Non-fatal if not found.
+CLASSIC_THEME_ID=$(get_classic_theme_id)
+if [ -n "$CLASSIC_THEME_ID" ]; then
+    print_success "Classic theme id: $CLASSIC_THEME_ID"
+else
+    print_warning "Classic theme not found; Consent Portal app will be created without a theme"
 fi
+echo ""
 
-print_info "Granting application management permissions to temporary app..."
-
-HTTP_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X POST "https://${WSO2IS_URL}/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
-  -d '{
-    "id": "'"$APPLICATION_MANAGEMENT_RESOURCE_ID"'",
-    "policyIdentifier": "RBAC",
-    "scopes": [
-      "internal_application_mgt_create",
-      "internal_application_mgt_update",
-      "internal_application_mgt_view",
-      "internal_application_mgt_delete",
-      "internal_application_mgt_client_secret_create",
-      "internal_application_internal_api_update",
-      "internal_application_business_api_update",
-      "internal_application_mgt_client_secret_view"
-    ]
-  }'
-)
-
-if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "200" ]; then
-    print_error "Failed to grant application management permissions (HTTP $HTTP_STATUS)"
-    exit 1
-fi
-print_success "Granted application management permissions to temporary app."
-
-# Enabling SCIM2 USER CREATION ACCESS FOR THE TEMPORARY DCR APP
-USER_MANAGEMENT_RESOURCE_RESPONSE=$(curl --silent -X GET "https://${WSO2IS_URL}/api/server/v1/api-resources?filter=identifier+eq+%2Fscim2%2FUsers" \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER"
-)
-
-USER_MANAGEMENT_RESOURCE_ID=$(echo "$USER_MANAGEMENT_RESOURCE_RESPONSE" | jq -r '.apiResources[0].id')
-
-if [ "$USER_MANAGEMENT_RESOURCE_ID" = "null" ] || [ -z "$USER_MANAGEMENT_RESOURCE_ID" ]; then
-    print_error "Failed to extract User Management Resource ID From Response"
-    print_error "Response was: $USER_MANAGEMENT_RESOURCE_RESPONSE"
-    exit 1
-fi
-
-USER_AUTHORIZATION_RESPONSE=$(curl --silent -X POST "https://${WSO2IS_URL}/api/server/v1/applications/$DCR_APPLICATION_ID/authorized-apis" \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
-  -d '{
-    "id": "'"$USER_MANAGEMENT_RESOURCE_ID"'",
-    "policyIdentifier": "RBAC",
-    "scopes": [
-      "internal_user_mgt_create"
-    ]
-  }'
-)
-
-echo "$USER_AUTHORIZATION_RESPONSE"
-
-# Step 2: Create API Gateway application using DCR endpoint
-print_info "Creating M2M application for API Gateway using DCR endpoint..."
-GATEWAY_DCR_RESPONSE=$(curl --silent -X POST https://${WSO2IS_URL}/api/identity/oauth2/dcr/v1.1/register \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER" \
-  -d '{
-    "client_name": "NDX_API_GATEWAY",
-    "grant_types": ["client_credentials", "refresh_token"],
-    "token_type": "OAUTH"
-  }')
-
-CLIENT_ID=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_id')
-CLIENT_SECRET=$(echo "$GATEWAY_DCR_RESPONSE" | jq -r '.client_secret')
-
-if [ "$CLIENT_ID" = "null" ] || [ -z "$CLIENT_ID" ]; then
-    print_error "Failed to create API Gateway application via DCR"
-    print_error "Response was: $GATEWAY_DCR_RESPONSE"
-    exit 1
-fi
-
-print_success "API Gateway application created successfully via DCR!"
+# Step 2: Create the API Gateway M2M application.
+# No role/scope grant is needed on this app: the apisix routes below run in
+# bearer_only + use_jwks mode, so its client_id/client_secret only satisfy the
+# openid-connect plugin's config schema, not an actual token exchange.
+print_info "Creating M2M application for API Gateway..."
+GATEWAY_CLIENT_ID="ndx-api-gateway"
+GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-$(openssl rand -hex 16)}"
+create_m2m_application "NDX_API_GATEWAY" "M2M client used by APISIX to validate bearer tokens" \
+    "$GATEWAY_CLIENT_ID" "$GATEWAY_CLIENT_SECRET" "$DEFAULT_OU_ID"
+CLIENT_ID="$GATEWAY_CLIENT_ID"
+CLIENT_SECRET="$GATEWAY_CLIENT_SECRET"
 print_info "API Gateway Client ID: $CLIENT_ID"
 echo ""
 
@@ -435,7 +476,7 @@ curl --location --request PUT http://localhost:9180/apisix/admin/routes \
     },
     "plugins": {
       "openid-connect": {
-        "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
+        "discovery": "https://thunderid:${IDP_PORT}/.well-known/openid-configuration",
         "bearer_only": true,
         "token_signing_alg_values_expected": "RS256",
         "set_userinfo_header": true,
@@ -475,7 +516,7 @@ curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
     },
     "plugins": {
         "openid-connect": {
-            "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
+            "discovery": "https://thunderid:${IDP_PORT}/.well-known/openid-configuration",
             "bearer_only": true,
             "token_signing_alg_values_expected": "RS256",
             "set_userinfo_header": true,
@@ -535,103 +576,14 @@ print_success "Audit Service public routes registered successfully"
 echo ""
 
 
-print_info "Obtaining Access token for performing application operations"
-# First, obtain a new access token with the updated permissions
-TOKEN_RESPONSE=$(curl --silent -X POST https://"$WSO2IS_URL"/oauth2/token \
-  --insecure \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "$DCR_CLIENT_ID:$DCR_CLIENT_SECRET" \
-  -d "grant_type=client_credentials&scope=internal_application_mgt_view internal_application_mgt_create internal_application_mgt_update internal_application_mgt_client_secret_view internal_user_mgt_create")
-
-ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
-
-if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
-    print_error "Failed to obtain access token with updated permissions"
-    print_error "Response was: $TOKEN_RESPONSE"
-    exit 1
-fi
-
-print_success "Access token obtained successfully!"
-echo ""
-
-# Create M2M Application using Management API
-print_info "Creating M2M application (Passport Application) using Management API..."
-
-M2M_APP_RESPONSE=$(curl --silent --insecure -i \
-  -X POST https://"$WSO2IS_URL"/api/server/v1/applications \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d @- <<EOF
-{
-  "name": "Passport Application",
-  "templateId": "m2m-application",
-  "associatedRoles": {
-    "allowedAudience": "APPLICATION",
-    "roles": []
-  },
-  "inboundProtocolConfiguration": {
-    "oidc": {
-      "grantTypes": ["client_credentials"],
-      "accessToken": {
-        "accessTokenAttributes": [],
-        "applicationAccessTokenExpiryInSeconds": 3600,
-        "revokeTokensWhenIDPSessionTerminated": false,
-        "type": "JWT",
-        "userAccessTokenExpiryInSeconds": 0,
-        "validateTokenBinding": false
-      }
-    }
-  }
-}
-EOF
-)
-
-M2M_HTTP_STATUS=$(echo "$M2M_APP_RESPONSE" | grep "HTTP/" | head -1 | awk '{print $2}')
-M2M_LOCATION=$(echo "$M2M_APP_RESPONSE" | grep -i "^location:" | cut -d: -f2- | tr -d '\r' | xargs)
-M2M_APP_BODY=$(echo "$M2M_APP_RESPONSE" | sed -n '/^{/,/^}/p')
-
-if [ "$M2M_HTTP_STATUS" != "201" ]; then
-    print_error "Failed to create M2M application via Management API (HTTP $M2M_HTTP_STATUS)"
-    print_error "Response: $M2M_APP_BODY"
-    exit 1
-fi
-
-# Extract application ID from Location header
-# Location format: https://${WSO2IS_URL}/api/server/v1/applications/{app-id}
-M2M_APP_ID=$(echo "$M2M_LOCATION" | sed 's|.*/applications/||')
-
-if [ -z "$M2M_APP_ID" ]; then
-    print_error "Failed to extract application ID from Location header"
-    print_error "Location header was: $M2M_LOCATION"
-    exit 1
-fi
-
-# Retrieve the full application details to get client ID and secret
-print_info "Retrieving M2M application credentials..."
-M2M_DETAILS_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X GET "https://$WSO2IS_URL/api/server/v1/applications/$M2M_APP_ID/inbound-protocols/oidc" \
-  --insecure \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-M2M_DETAILS_HTTP_STATUS=$(echo "$M2M_DETAILS_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-M2M_DETAILS_BODY=$(echo "$M2M_DETAILS_RESPONSE" | sed '/HTTP_STATUS:/d')
-
-# Print the body for debugging
-print_info "M2M Application Details Response (HTTP $M2M_DETAILS_HTTP_STATUS):"
-echo "$M2M_DETAILS_BODY"
-
-if [ "$M2M_DETAILS_HTTP_STATUS" != "200" ]; then
-    print_error "Failed to retrieve M2M application details (HTTP $M2M_DETAILS_HTTP_STATUS)"
-    exit 1
-fi
-
-M2M_CLIENT_ID=$(echo "$M2M_DETAILS_BODY" | jq -r '.clientId')
-M2M_CLIENT_SECRET=$(echo "$M2M_DETAILS_BODY" | jq -r '.clientSecret')
-
-if [ "$M2M_CLIENT_ID" = "null" ] || [ -z "$M2M_CLIENT_ID" ]; then
-    print_error "Failed to extract M2M Client ID from application details"
-    print_error "Response: $M2M_DETAILS_BODY"
-    exit 1
-fi
+# Create M2M Application (Passport Application) using the Management API.
+# ThunderID lets us choose the clientId/clientSecret directly, so there's no
+# separate "retrieve generated credentials" round trip needed.
+print_info "Creating M2M application (Passport Application)..."
+M2M_CLIENT_ID="passport-application"
+M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-$(openssl rand -hex 16)}"
+create_m2m_application "Passport Application" "M2M client used by the Online Passport App" \
+    "$M2M_CLIENT_ID" "$M2M_CLIENT_SECRET" "$DEFAULT_OU_ID"
 
 print_success "M2M application (Passport Application) created successfully!"
 echo ""
@@ -644,67 +596,12 @@ print_info "Client Secret:    $M2M_CLIENT_SECRET"
 print_success "=========================================="
 echo ""
 
-# Define the Consent Portal client ID
-PORTAL_CLIENT_ID="Mpjt5VUqDPL8iVByyFcMDregz6Ea"
+# Define the Consent Portal client ID (unchanged from the WSO2 setup)
+PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
 
-# Now attempt to create the Consent Portal SPA application using the Management API
-print_info "Creating SPA application for Consent Portal using Management API..."
-
-# Create the Consent Portal SPA application with predefined client_id
-print_info "Creating Consent Portal application with client ID: $PORTAL_CLIENT_ID"
-
-PORTAL_APP_RESPONSE=$(curl --silent -w "\nHTTP_STATUS:%{http_code}" -X POST https://"${WSO2IS_URL}"/api/server/v1/applications \
-  --insecure \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d @- <<EOF
-{
-  "name": "NDX_CONSENT_PORTAL",
-  "templateId": "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
-  "description": "Single-Page Application for NDX Consent Portal",
-  "inboundProtocolConfiguration": {
-    "oidc": {
-      "clientId": "$PORTAL_CLIENT_ID",
-      "grantTypes": ["authorization_code", "refresh_token"],
-      "callbackURLs": ["http://localhost:5173"],
-      "allowedOrigins": ["http://localhost:5173"],
-      "publicClient": true,
-      "pkce": {
-        "mandatory": true,
-        "supportPlainTransformAlgorithm": false
-      },
-      "accessToken": {
-        "type": "JWT",
-        "userAccessTokenExpiryInSeconds": 3600,
-        "applicationAccessTokenExpiryInSeconds": 3600,
-        "accessTokenAttributes": [
-          "email"
-        ]
-      },
-      "refreshToken": {
-        "expiryInSeconds": 86400,
-        "renewRefreshToken": true
-      },
-      "idToken": {
-        "expiryInSeconds": 3600
-      }
-    }
-  }
-}
-EOF
-)
-
-HTTP_STATUS=$(echo "$PORTAL_APP_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
-PORTAL_APP_BODY=$(echo "$PORTAL_APP_RESPONSE" | sed '/HTTP_STATUS:/d')
-
-print_info "Consent Portal Application Creation Response (HTTP $HTTP_STATUS):"
-echo "$PORTAL_APP_BODY"
-
-if [ "$HTTP_STATUS" != "201" ]; then
-    print_error "Failed to create Consent Portal application via Management API (HTTP $HTTP_STATUS)"
-    print_error "Response: $PORTAL_APP_BODY"
-    exit 1
-fi
+print_info "Creating SPA application for Consent Portal..."
+create_spa_application "NDX_CONSENT_PORTAL" "Single-Page Application for NDX Consent Portal" \
+    "$PORTAL_CLIENT_ID" "http://localhost:5173" "$DEFAULT_OU_ID"
 
 print_success "Consent Portal application created successfully!"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
@@ -721,63 +618,40 @@ print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
 
-# Create a mock user using SCIM2 API
-print_info "Creating mock user via SCIM2 API..."
-SCIM_USER_RESPONSE=$(
-  curl --silent -X POST https://"$WSO2IS_URL"/scim2/Users \
-    --insecure \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $ACCESS_TOKEN" \
-    -d @- <<EOF
+# Create a mock user via ThunderID's User Management API (no SCIM2 equivalent
+# exists in ThunderID - this is its own custom user API, scoped by OU + user
+# type; "Person" is the image-provided default user type).
+print_info "Creating mock user..."
+USER_RESPONSE=$(thunderid_api_call POST "/users" "$(cat <<EOF
 {
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-  "userName": "nayana",
-  "name": {
-    "givenName": "Nayana",
-    "familyName": "Samaranayake"
-  },
-  "emails": [
-    {
-      "value": "nayana@opensource.lk",
-      "primary": true
-    }
-  ],
-  "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
-  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
-    "employeeNumber": "EMP001"
+  "type": "Person",
+  "ouId": "${DEFAULT_OU_ID}",
+  "attributes": {
+    "username": "nayana",
+    "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
+    "email": "nayana@opensource.lk",
+    "given_name": "Nayana",
+    "family_name": "Samaranayake"
   }
 }
 EOF
-)
+)")
+USER_HTTP_CODE="${USER_RESPONSE: -3}"
+USER_BODY="${USER_RESPONSE%???}"
 
-SCIM_USER_ID=$(echo "$SCIM_USER_RESPONSE" | jq -r '.id')
-
-if [ "$SCIM_USER_ID" = "null" ] || [ -z "$SCIM_USER_ID" ]; then
-    print_warning "Failed to create user via SCIM2 API (user may already exist)"
-    print_info "Response: $SCIM_USER_RESPONSE"
-else
-    print_success "Mock user created successfully via SCIM2 API!"
+if [ "$USER_HTTP_CODE" = "201" ] || [ "$USER_HTTP_CODE" = "200" ]; then
+    SCIM_USER_ID=$(extract_first_id "$USER_BODY")
+    print_success "Mock user created successfully!"
     print_info "User ID: $SCIM_USER_ID"
-    print_info "Username: nayana@opensource.lk"
-    print_info "Password: Abc12#45"
+    print_info "Username: nayana"
+    print_info "Password: ${MOCK_USER_PASSWORD:-Abc12#45}"
+elif [ "$USER_HTTP_CODE" = "409" ]; then
+    print_warning "Mock user 'nayana' already exists, skipping"
+else
+    print_warning "Failed to create mock user (HTTP $USER_HTTP_CODE)"
+    print_info "Response: $USER_BODY"
 fi
 echo ""
-
-# Delete the temporary DCR application now that setup is complete
-if [ -n "$DCR_CLIENT_ID" ]; then
-    print_info "Deleting temporary DCR application..."
-    DELETE_STATUS=$(curl --silent -o /dev/null -w "%{http_code}" -X DELETE "https://${WSO2IS_URL}/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID" \
-      --insecure \
-      -H "Authorization: Basic $WSO2_ADMIN_AUTH_HEADER")
-    if [ "$DELETE_STATUS" = "204" ]; then
-        print_success "Temporary DCR application deleted successfully"
-        print_info "  Client ID: $DCR_CLIENT_ID"
-    else
-        print_warning "Failed to delete temporary DCR application (HTTP status: $DELETE_STATUS)"
-        print_info "  Client ID: $DCR_CLIENT_ID"
-        print_info "  You can delete it manually: DELETE https://$WSO2IS_URL/api/identity/oauth2/dcr/v1.1/register/$DCR_CLIENT_ID"
-    fi
-fi
 
 # Start member services
 print_info "Starting member data source services..."

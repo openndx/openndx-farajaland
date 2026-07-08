@@ -43,7 +43,7 @@ The **NDX (National Data Exchange)** is the central infrastructure that:
 ### The Trusted Identity Provider
 
 **FUDI (Farajaland Unique Digital Identity)** serves as Farajaland's trusted identity provider:
-- A national digital identity platform powered by WSO2 Identity Server
+- A national digital identity platform powered by ThunderID
 - All citizens have FUDI accounts registered in the system
 - Provides secure authentication for the consent portal
 - Issues tokens for authenticated sessions
@@ -240,7 +240,7 @@ The DIE consumes data from multiple providers to process passport applications:
 
 1. **OAuth2 Client Credentials**: For service-to-service authentication (e.g., RGD)
 2. **API Keys**: For simpler authenticated access (e.g., DRP via Choreo)
-3. **JWT Tokens**: For user authentication (future implementation with WSO2 IS)
+3. **JWT Tokens**: For user authentication (future implementation with ThunderID)
 
 ### Consent Management
 
@@ -272,7 +272,7 @@ Policy Decision Point (PDP) enforces:
 - Regularly update dependencies
 
 **For Production**:
-- Enable WSO2 Identity Server
+- Harden ThunderID for production (rotate admin/admin-cli secrets, CA-signed TLS certificate)
 - Use TLS/SSL for all communications
 - Implement rate limiting and DDoS protection
 - Regular security audits

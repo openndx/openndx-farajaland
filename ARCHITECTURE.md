@@ -70,10 +70,10 @@ OpenDIF Farajaland implements a **federated data exchange architecture** that en
        ┌──────────────────────┴─────────────────────┐
        ↓                                            ↓
 ┌──────────────┐                            ┌──────────────┐
-│  PostgreSQL  │                            │  FUDI/WSO2   │
-│   Database   │                            │ Identity Srvr│
+│  PostgreSQL  │                            │FUDI/ThunderID│
+│   Database   │                            │              │
 │              │                            │              │
-│ Port: 5432   │                            │ Port: 9444   │
+│ Port: 5432   │                            │ Port: 8090   │
 └──────────────┘                            └──────────────┘
 ```
 
@@ -244,7 +244,7 @@ The NDX is the core infrastructure layer providing orchestration, consent manage
 
 | Component                    | Technology           | Port | Purpose                              | Status   |
 |------------------------------|----------------------|------|--------------------------------------|----------|
-| **FUDI (Identity Provider)** | WSO2 Identity Server | 9444 | Citizen authentication, OAuth2/OIDC  | Optional |
+| **FUDI (Identity Provider)** | ThunderID             | 8090 | Citizen authentication, OAuth2/OIDC  | Optional |
 | **Monitoring**               | Prometheus + Grafana | TBD  | Metrics collection and visualization | Planned  |
 | **Logging**                  | ELK Stack            | TBD  | Centralized log aggregation          | Planned  |
 | **Tracing**                  | Jaeger               | TBD  | Distributed request tracing          | Planned  |
@@ -501,7 +501,7 @@ Consent Verified → Fetch data from RGD + DRP → Return aggregated data
 
 **Authentication & Authorization**:
 - **Service-to-Service**: OAuth2 Client Credentials
-- **Citizen Authentication**: FUDI/WSO2 IS with OIDC
+- **Citizen Authentication**: FUDI/ThunderID with OIDC
 - **API Key**: Simplified authentication for trusted services
 - **Policy-Based Access Control**: RBAC and ABAC via PDP
 
@@ -798,7 +798,7 @@ Layer 4: Data Source (authentication, authorization)
      ↓
 ┌──────────────┐
 │     FUDI     │
-│  (WSO2 IS)   │
+│ (ThunderID)  │
 └────┬─────────┘
      │ 9. Authenticate
      ↓
@@ -845,7 +845,7 @@ Layer 4: Data Source (authentication, authorization)
 
 **Setup**: `./init.sh` script
 - Starts Docker Compose with all services
-- Configures FUDI/WSO2 IS
+- Configures FUDI/ThunderID
 - Registers API Gateway routes
 - Starts member services
 
@@ -875,7 +875,7 @@ Orchestration Engine (Deployment + Service)
 Supporting:
 - PostgreSQL (StatefulSet + PVC)
 - etcd (StatefulSet + PVC)
-- WSO2 IS (StatefulSet + PVC)
+- ThunderID (StatefulSet + PVC)
 ```
 
 **Benefits**:

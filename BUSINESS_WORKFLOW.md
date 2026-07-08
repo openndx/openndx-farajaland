@@ -103,7 +103,7 @@ Since Nayana hasn't granted consent yet, NDX responds with:
 **Actions**:
 - Nayana **authenticates using his FUDI credentials** (Farajaland's national digital identity)
 - Multi-factor authentication may be required for sensitive operations
-- FUDI (powered by WSO2 Identity Server) verifies Nayana's identity securely
+- FUDI (powered by ThunderID) verifies Nayana's identity securely
 
 **Authentication Flow**:
 1. Nayana enters his FUDI username and password

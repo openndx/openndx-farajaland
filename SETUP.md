@@ -42,7 +42,7 @@ The following are only required if you want to run and modify the data source se
   - **Core Services**
     - `4000` - Orchestration Engine
     - `9081, 9180` - API Gateway (APISIX)
-    - `9444, 9673` - FUDI (WSO2 Identity Server)
+    - `8090` - FUDI (ThunderID)
     - `5173` - Consent Portal (Frontend)
     - `3001` - Audit Service
   - **Member Services**
@@ -62,12 +62,12 @@ cd opendif-farajaland
 
 ### 2. Configure Hostname Resolution
 
-Since the WSO2 Identity Server runs inside the Docker network with the hostname `wso2is`, you need to add this hostname to your `/etc/hosts` file for proper DNS resolution:
+Since ThunderID runs inside the Docker network with the hostname `thunderid`, you need to add this hostname to your `/etc/hosts` file for proper DNS resolution:
 
 **macOS/Linux:**
 ```bash
-# Add wso2is hostname to /etc/hosts
-echo "127.0.0.1       wso2is" | sudo tee -a /etc/hosts
+# Add thunderid hostname to /etc/hosts
+echo "127.0.0.1       thunderid" | sudo tee -a /etc/hosts
 ```
 
 **Windows:**
@@ -75,14 +75,18 @@ echo "127.0.0.1       wso2is" | sudo tee -a /etc/hosts
 2. Open `C:\Windows\System32\drivers\etc\hosts`
 3. Add the following line at the end:
    ```
-   127.0.0.1       wso2is
+   127.0.0.1       thunderid
    ```
 4. Save the file
 
 **Verify the configuration:**
 ```bash
-ping wso2is
+ping thunderid
 ```
+
+Once ThunderID is running, open `https://thunderid:8090` in your browser once and
+accept the self-signed certificate warning — otherwise the Consent Portal's
+redirect to ThunderID's login page will silently fail with a TLS error.
 
 You should see responses from `127.0.0.1`.
 
@@ -133,22 +137,21 @@ CLEAN_START=false ./init.sh
    - Orchestration Engine
    - Consent Engine
    - Policy Decision Point
-   - FUDI/WSO2 Identity Server
+   - FUDI/ThunderID
 3. ✅ Waits for services to be healthy
-4. ✅ Creates temporary DCR application for Management API access
-5. ✅ Automatically grants necessary API permissions to the DCR application
-6. ✅ Creates API Gateway M2M application
-7. ✅ Registers API routes in APISIX Gateway
-8. ✅ Creates Consent Portal SPA application
-9. ✅ Creates Passport Application (M2M) for user access
-10. ✅ Creates a mock user automatically (username: nayana@opensource.lk)
-11. ✅ Starts member data source services:
+4. ✅ Mints a system-scoped management token from the ADMIN_CLI M2M client
+5. ✅ Creates API Gateway M2M application
+6. ✅ Registers API routes in APISIX Gateway
+7. ✅ Creates Consent Portal SPA application
+8. ✅ Creates Passport Application (M2M) for user access
+9. ✅ Creates a mock user automatically (username: nayana)
+10. ✅ Starts member data source services:
     - RGD API (Python/FastAPI)
     - DRP API Adapter (Ballerina)
-12. ✅ Starts client applications:
+11. ✅ Starts client applications:
     - Passport Application Frontend (http://localhost:3000)
     - Consent Portal Frontend (http://localhost:5173)
-13. ✅ **Displays Passport Application credentials and next steps**
+12. ✅ **Displays Passport Application credentials and next steps**
 
 **The entire setup process is now fully automated - no manual steps required!**
 
@@ -179,7 +182,7 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-https://wso2is:9444/oauth2/token
+https://thunderid:8090/oauth2/token
 
 Public API Gateway:
 http://localhost:9081/public/*
@@ -282,13 +285,23 @@ docker-compose ps
 
 ### Step 2: Configure FUDI Applications
 
-You'll need to manually create OAuth2 applications in WSO2 IS:
+ThunderID's bootstrap (`config/thunderid/bootstrap/02-admin-cli.sh`) already creates
+an `ADMIN_CLI` M2M client with management API access during `docker-compose up`, so
+you can create the required applications with curl instead of a browser console:
 
-1. Access the WSO2 IS console at `https://wso2is:9444/console`
-2. Login with `admin`/`admin`
-3. Create an M2M application for the API Gateway
-4. Create an SPA application for the Consent Portal
-5. Note down the client IDs and secrets
+```bash
+# Mint a management token from the ADMIN_CLI client created during bootstrap
+TOKEN=$(curl -k -s -u "ADMIN_CLI:${ADMIN_CLI_SECRET:-1234}" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" -d "scope=system" \
+  https://thunderid:8090/oauth2/token | jq -r .access_token)
+
+# Use $TOKEN as a Bearer token against https://thunderid:8090/applications
+# (POST) to create an M2M application for the API Gateway and an SPA
+# application for the Consent Portal. Note down the client IDs and secrets.
+```
+
+Or simply run `./init.sh`, which performs all of this automatically.
 
 ### Step 3: Register API Gateway Routes
 
@@ -310,7 +323,7 @@ curl --location --request PUT http://localhost:9180/apisix/admin/routes \
     },
     "plugins": {
       "openid-connect": {
-        "discovery": "https://wso2is:9444/oauth2/token/.well-known/openid-configuration",
+        "discovery": "https://thunderid:8090/.well-known/openid-configuration",
         "bearer_only": true,
         "client_id": "YOUR_CLIENT_ID",
         "client_secret": "YOUR_CLIENT_SECRET",
@@ -378,12 +391,11 @@ docker-compose logs postgres
 docker-compose restart postgres
 ```
 
-**WSO2 Identity Server timeout:**
+**ThunderID timeout:**
 ```bash
-# Check WSO2 IS logs
-docker-compose logs wso2is
+# Check ThunderID logs (db-init and setup run once and exit; thunderid is the long-running server)
+docker-compose logs thunderid thunderid-setup thunderid-db-init
 
-# WSO2 IS takes 2-3 minutes to start, wait longer
 # Or allocate more memory to Docker (increase to 4GB+)
 ```
 
@@ -516,7 +528,8 @@ Key configuration files you may need to modify:
 - `ndx/schema.graphql` - Unified GraphQL schema
 - `ndx/.env` - Environment variables for NDX services
 - `ndx/config/apisix/conf.yaml` - API Gateway configuration
-- `ndx/config/wso2is/deployment.toml` - FUDI/WSO2 IS configuration
+- `ndx/config/thunderid/deployment.yaml` - FUDI/ThunderID configuration
+- `ndx/config/thunderid/bootstrap/02-admin-cli.sh` - ThunderID bootstrap script (creates the ADMIN_CLI management client)
 
 ## Advanced Configuration
 
@@ -547,7 +560,7 @@ For production deployments:
 1. Enable TLS/SSL for all services
 2. Change default passwords and secrets
 3. Use proper secrets management (e.g., HashiCorp Vault)
-4. Enable WSO2 IS with proper configuration
+4. Harden ThunderID configuration (rotate `ADMIN_PASSWORD`/`ADMIN_CLI_SECRET`, use a real SMTP server, use a CA-signed TLS certificate)
 5. Set up monitoring and logging
 6. Configure proper backup strategies
 

@@ -25,22 +25,94 @@ services:
     volumes:
       - ./config/apisix/conf.yaml:/usr/local/apisix/conf/config.yaml
 
-  wso2is:
-    image: wso2/wso2is:7.2.0   # replace with your desired version
-    container_name: wso2is
-    ports:
-      - "9444:9444"   # HTTPS / admin console
-      - "9764:9764"   # HTTP (optional)
-    environment:
-      - TZ=Asia/Colombo       # optional, set timezone
-      - SERVER_HOSTNAME=wso2is
+  # Stage A: seed the ThunderID image's bundled SQLite DB files into named
+  # volumes so thunderid-setup/thunderid see a writable copy.
+  thunderid-db-init:
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    container_name: thunderid-db-init-${ENVIRONMENT:-local}
+    # -n (no-clobber): seed only if empty. Recreating this container (e.g. after
+    # an unrelated env var change) must never overwrite an already-populated
+    # volume - a plain `cp -r` would silently wipe existing ThunderID data.
+    command: sh -c "cp -rn /opt/thunderid/database/* /data/ && (cp -rn /opt/thunderid/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
     volumes:
-      - ./config/wso2is/deployment.toml:/home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
+      - thunderid-db:/data
+      - consent-db:/consent-data
+    restart: "no"
+    networks:
+      - exchange-network
+
+  # Stage B: one-shot bootstrap. Starts the server with security disabled,
+  # runs the image's 01-default-resources.sh (default OU, Person user type,
+  # Administrator role, Console app) plus our mounted 02-admin-cli.sh (creates
+  # the ADMIN_CLI M2M client used by init.sh to mint management tokens).
+  thunderid-setup:
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    container_name: thunderid-setup-${ENVIRONMENT:-local}
+    command: ./setup.sh
+    depends_on:
+      thunderid-db-init:
+        condition: service_completed_successfully
+    environment:
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
+      - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
+      - PUBLIC_URL=${IDP_BASE_URL:-https://thunderid:8090}
+      - PORT=${IDP_PORT:-8090}
+      - HOSTNAME=0.0.0.0
+      - CORS_ORIGINS_0=${CONSENT_PORTAL_URL:-http://localhost:5173}
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-dummy}
+      - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
+      - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
+      - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+    volumes:
+      - thunderid-db:/opt/thunderid/database
+      - consent-db:/opt/thunderid/consent/repository/database
+      - ./config/thunderid/bootstrap/02-admin-cli.sh:/opt/thunderid/bootstrap/02-admin-cli.sh
+    restart: "no"
+    networks:
+      - exchange-network
+
+  thunderid:
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.46.0}
+    container_name: thunderid-${ENVIRONMENT:-local}
+    depends_on:
+      thunderid-setup:
+        condition: service_completed_successfully
+    ports:
+      - "${IDP_PORT:-8090}:${IDP_PORT:-8090}"
+    environment:
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
+      - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
+      - PUBLIC_URL=${IDP_BASE_URL:-https://thunderid:8090}
+      - PORT=${IDP_PORT:-8090}
+      - HOSTNAME=0.0.0.0
+      - CORS_ORIGINS_0=${CONSENT_PORTAL_URL:-http://localhost:5173}
+      # Dev-console origins: the console's baked config serves it from localhost:8090
+      # while OAuth endpoints come from PUBLIC_URL (thunderid:8090), so the console
+      # page is cross-origin to its own token endpoint and needs these allowed.
+      - CORS_ORIGINS_1=https://localhost:${IDP_PORT:-8090}
+      - CORS_ORIGINS_2=https://thunderid:${IDP_PORT:-8090}
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-dummy}
+      - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-noreply@farajaland.local}
+      - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
+      - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
+    volumes:
+      - thunderid-db:/opt/thunderid/database
+      - consent-db:/opt/thunderid/consent/repository/database
+      - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
     healthcheck:
-      test: [ "CMD", "curl", "-k", "-f", "https://localhost:9444/oauth2/token/.well-known/openid-configuration" ]
+      test: ["CMD-SHELL", "curl -k -s -o /dev/null https://localhost:${IDP_PORT:-8090}/ || exit 1"]
       interval: 5s
-      timeout: 120s
-      start_period: 100s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
     restart: unless-stopped
     networks:
       - exchange-network
@@ -81,8 +153,11 @@ services:
   consent-engine:
     depends_on:
       - postgres
-      - wso2is
-    image: ghcr.io/opendif/opendif-core/consent-engine:0.1.0
+      - thunderid
+    # Image with the generic (IdP-agnostic) JWT verifier — validates issuer +
+    # audience + client_id, no organization claim (OpenDIF/opendif-core#450),
+    # and supports IDP_JWKS_INSECURE_SKIP_VERIFY (#452).
+    image: ghcr.io/opendif/opendif-core/consent-engine:${CE_IMAGE_TAG:-sha-79a8b79fd9e5c30f676a2ae950eeaec3d19eabd9}
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -94,12 +169,12 @@ services:
       - JWT_SECRET=${JWT_SECRET:-local-secret-key}
       - CORS=${CORS:-true}
       - RATE_LIMIT=${RATE_LIMIT:-1000}
-      # Database configuration
-      - CHOREO_OPENDIF_DATABASE_HOSTNAME=${CE_DB_HOST:-localhost}
-      - CHOREO_OPENDIF_DATABASE_PORT=${CE_DB_PORT:-5432}
-      - CHOREO_OPENDIF_DATABASE_USERNAME=${CE_DB_USERNAME:-postgres}
-      - CHOREO_OPENDIF_DATABASE_PASSWORD=${CE_DB_PASSWORD:-password}
-      - CHOREO_OPENDIF_DATABASE_DATABASENAME=${CE_DB_NAME:-consent_engine}
+      # Database configuration (local image reads DB_* names)
+      - DB_HOST=${CE_DB_HOST:-localhost}
+      - DB_PORT=${CE_DB_PORT:-5432}
+      - DB_USERNAME=${CE_DB_USERNAME:-postgres}
+      - DB_PASSWORD=${CE_DB_PASSWORD:-1234}
+      - DB_NAME=${CE_DB_NAME:-consent_engine}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
       - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
@@ -110,10 +185,14 @@ services:
       - DB_RETRY_ATTEMPTS=${DB_RETRY_ATTEMPTS:-3}
       - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
-      - ASGARDEO_ORG_NAME=${IDP_ORG_NAME:-Super}
-      - ASGARDEO_ISSUER=${IDP_ISSUER:-https://wso2is:9444/oauth2/token}
-      - ASGARDEO_AUDIENCE=${IDP_AUDIENCE:-Mpjt5VUqDPL8iVByyFcMDregz6Ea}
-      - ASGARDEO_JWKS_URL=${IDP_JWKS_URL:-http://wso2is:9444/oauth2/jwks}
+      # Generic IdP config (verifier validates issuer + audience + client_id, no org).
+      - IDP_ISSUER=${IDP_ISSUER:-https://thunderid:8090}
+      - IDP_AUDIENCE=${IDP_AUDIENCE:-CONSENT_PORTAL_APP}
+      - IDP_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-CONSENT_PORTAL_APP}
+      - IDP_JWKS_URL=${IDP_JWKS_URL:-https://thunderid:8090/oauth2/jwks}
+      # ThunderID serves a self-signed dev cert; skip TLS verification on the
+      # JWKS fetch (matches apisix ssl_verify:false / DIE rejectUnauthorized:false).
+      - IDP_JWKS_INSECURE_SKIP_VERIFY=${IDP_JWKS_INSECURE_SKIP_VERIFY:-true}
       - CORS_ALLOWED_ORIGINS=${CONSENT_PORTAL_URL:-http://localhost:5173}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
@@ -128,7 +207,7 @@ services:
   consent-portal:
     depends_on:
       - postgres
-      - wso2is
+      - thunderid
     image: ghcr.io/opendif/opendif-core/consent-portal:0.1.0
     ports:
       - "${PORT_CP:-5173}:80"
@@ -136,10 +215,10 @@ services:
     environment:
       - VITE_API_URL=http://localhost:9081/api/v1
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
-      # NOTE: The default value for VITE_BASE_URL uses 'https://wso2is:9444'.
-      # Make sure 'wso2is' resolves correctly in your browser context (e.g., by adding it to /etc/hosts).
+      # NOTE: The default value for VITE_BASE_URL uses 'https://thunderid:8090'.
+      # Make sure 'thunderid' resolves correctly in your browser context (e.g., by adding it to /etc/hosts).
       # See SETUP.md for more details.
-      - VITE_BASE_URL=${IDP_BASE_URL:-https://wso2is:9444}
+      - VITE_BASE_URL=${IDP_BASE_URL:-https://thunderid:8090}
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
@@ -210,3 +289,5 @@ networks:
 
 volumes:
   pg_data:
+  thunderid-db:
+  consent-db:
