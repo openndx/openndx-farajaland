@@ -3,17 +3,14 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plane, MapPin, ExternalLink } from "lucide-react"
-import {useAuthContext} from "@asgardeo/auth-react";
+import { Link } from "react-router-dom"
 
 export function HeroSection() {
-
-  const { signIn } = useAuthContext()
-
   return (
     <div className="relative min-h-[600px] bg-gradient-to-br from-cyan-50 to-blue-100">
       {/* Background Image */}
       <div
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-20"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
         style={{
           backgroundImage: "url('/sri-lankan-cityscape-with-modern-buildings-and-pal.png')",
         }}
@@ -46,11 +43,11 @@ export function HeroSection() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Instructions
                 </Button>
-                <Button onClick={() => signIn()} asChild className="w-full bg-primary hover:bg-primary/90">
-                  <a href="/login">
+                <Button asChild className="w-full bg-primary hover:bg-primary/90">
+                  <Link to="/login">
                     Apply Passport
                     <ExternalLink className="h-4 w-4 ml-2" />
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </CardContent>
@@ -73,11 +70,11 @@ export function HeroSection() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Instructions
                 </Button>
-                <Button onClick={() => signIn()} asChild className="w-full bg-primary hover:bg-primary/90">
-                  <a href="/apply">
+                <Button asChild className="w-full bg-primary hover:bg-primary/90">
+                  <Link to="/login">
                     Apply Passport
                     <ExternalLink className="h-4 w-4 ml-2" />
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </CardContent>

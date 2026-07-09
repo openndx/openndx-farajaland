@@ -1,53 +1,38 @@
 import type {User as SludiUser} from "../types/user.sludi";
 import {Button} from "@/components/ui/button";
-import {Globe, User, Search} from "lucide-react";
-import {Link} from "react-router-dom";
+import {Globe, User, Search, LogOut} from "lucide-react";
+import {Link, useNavigate} from "react-router-dom";
 import {useEffect, useState} from "react";
-import {useAuthContext} from "@asgardeo/auth-react";
 
 export function Header() {
     const [user, setUser] = useState<SludiUser | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        try {
-            setUser(user)
-        } catch (error) {
-            console.error("Error parsing user data:", error)
-        }
-    }, [])
-
-    const {state, getBasicUserInfo} = useAuthContext()
-
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            if (state.isAuthenticated) {
-                const basicUserInfo = await getBasicUserInfo()
-
-                setUser({
-                    authenticated: false,
-                    loginTime: "",
-                    mobileNumber: "9471234567",
-                    name: basicUserInfo.displayName!,
-                    email: basicUserInfo.email!,
-                    nic: "199512345678"
-                })
-
-                localStorage.setItem(
-                    "sludi_user",
-                    JSON.stringify({
-                        name: "Nuwan Fernando",
-                        nic: "199512345678",
-                        sludiNumber: "434343344334",
-                        mobileNumber: "94712345678",
-                        email: basicUserInfo.email,
-                        authenticated: true,
-                        loginTime: new Date().toISOString(),
-                    }),
-                )
+        const loadUser = () => {
+            try {
+                const stored = localStorage.getItem("sludi_user");
+                if (stored) {
+                    setUser(JSON.parse(stored));
+                } else {
+                    setUser(null);
+                }
+            } catch (error) {
+                console.error("Error parsing user data:", error);
             }
-        }
-        fetchUserInfo()
-    }, [state]);
+        };
+
+        loadUser();
+
+        window.addEventListener("auth-change", loadUser);
+        return () => window.removeEventListener("auth-change", loadUser);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem("sludi_user");
+        setUser(null);
+        navigate("/");
+    };
 
     return (
         <header className="bg-white border-b border-border shadow-sm">
@@ -88,15 +73,19 @@ export function Header() {
                         <Button variant="outline" size="sm" className="text-sm bg-transparent">
                             தமிழ்
                         </Button>
-                        {state.isAuthenticated ? (
-                            <>
-                                <Button variant="ghost" size="sm">
+                        {user ? (
+                            <div className="flex items-center space-x-2">
+                                <Button variant="ghost" size="sm" className="pointer-events-none">
                                     <User className="h-4 w-4 mr-2"/>
-                                    {state.displayName}
+                                    {user.name}
                                 </Button>
-                            </>
+                                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                    <LogOut className="h-4 w-4 mr-1"/>
+                                    Logout
+                                </Button>
+                            </div>
                         ) : (
-                            <Link to="/login" className="flex items-center">
+                            <Link to="/login" className="flex items-center text-sm font-medium text-gray-700 hover:text-primary transition duration-150">
                                 <User className="h-4 w-4 mr-2"/>
                                 Login
                             </Link>
