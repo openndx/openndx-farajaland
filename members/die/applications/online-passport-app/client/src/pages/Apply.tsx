@@ -1,39 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "react-oidc-context";
 import { Header } from "../components/header";
 import { MultiStepForm } from "../components/multi-step-form";
 import { PersonalInfoStep } from "../components/form-steps/personal-info-step";
 import { ReviewDeclarationStep } from "../components/form-steps/review-declaration-step";
 
-interface User {
-  name: string;
-  nic: string;
-  sludiNumber?: string;
-  mobileNumber: string;
-  email: string;
-  authenticated: boolean;
-  loginTime: string;
-}
-
 export default function Apply() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
+  const auth = useAuth();
 
   useEffect(() => {
-    // Check if user is authenticated
-    const storedUser = localStorage.getItem("sludi_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      // Redirect to login if not authenticated
-      navigate("/login");
+    // Send unauthenticated visitors through the OIDC login, returning here after.
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      void auth.signinRedirect({ state: { returnTo: "/apply" } });
     }
-  }, [navigate]);
+  }, [auth.isLoading, auth.isAuthenticated, auth]);
 
   const handleSubmit = (data: Record<string, any>) => {
     // Store the application data in localStorage for the success page
     const submissionData = {
-      ...user,
+      name: auth.user?.profile.name,
+      email: auth.user?.profile.email,
       ...data["personal-info"],
       ...data["review-declaration"],
       submittedAt: new Date().toISOString(),
@@ -45,7 +33,7 @@ export default function Apply() {
     navigate("/success", { replace: true });
   };
 
-  if (!user) {
+  if (auth.isLoading || !auth.isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p>Loading...</p>

@@ -1,53 +1,11 @@
-import type {User as SludiUser} from "../types/user.sludi";
 import {Button} from "@/components/ui/button";
 import {Globe, User, Search} from "lucide-react";
 import {Link} from "react-router-dom";
-import {useEffect, useState} from "react";
-import {useAuthContext} from "@asgardeo/auth-react";
+import {useAuth} from "react-oidc-context";
 
 export function Header() {
-    const [user, setUser] = useState<SludiUser | null>(null);
-
-    useEffect(() => {
-        try {
-            setUser(user)
-        } catch (error) {
-            console.error("Error parsing user data:", error)
-        }
-    }, [])
-
-    const {state, getBasicUserInfo} = useAuthContext()
-
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            if (state.isAuthenticated) {
-                const basicUserInfo = await getBasicUserInfo()
-
-                setUser({
-                    authenticated: false,
-                    loginTime: "",
-                    mobileNumber: "9471234567",
-                    name: basicUserInfo.displayName!,
-                    email: basicUserInfo.email!,
-                    nic: "199512345678"
-                })
-
-                localStorage.setItem(
-                    "sludi_user",
-                    JSON.stringify({
-                        name: "Nuwan Fernando",
-                        nic: "199512345678",
-                        sludiNumber: "434343344334",
-                        mobileNumber: "94712345678",
-                        email: basicUserInfo.email,
-                        authenticated: true,
-                        loginTime: new Date().toISOString(),
-                    }),
-                )
-            }
-        }
-        fetchUserInfo()
-    }, [state]);
+    const auth = useAuth()
+    const profile = auth.user?.profile
 
     return (
         <header className="bg-white border-b border-border shadow-sm">
@@ -88,18 +46,22 @@ export function Header() {
                         <Button variant="outline" size="sm" className="text-sm bg-transparent">
                             தமிழ்
                         </Button>
-                        {state.isAuthenticated ? (
+                        {auth.isAuthenticated ? (
                             <>
                                 <Button variant="ghost" size="sm">
                                     <User className="h-4 w-4 mr-2"/>
-                                    {state.displayName}
+                                    {profile?.name ?? profile?.email}
                                 </Button>
                             </>
                         ) : (
-                            <Link to="/login" className="flex items-center">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => auth.signinRedirect({ state: { returnTo: "/apply" } })}
+                            >
                                 <User className="h-4 w-4 mr-2"/>
                                 Login
-                            </Link>
+                            </Button>
                         )}
                     </div>
                 </div>

@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import * as dotenv from 'dotenv';
 import graphqlRouter from './routes/graphql';
+import oauthRouter from './routes/oauth';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api', graphqlRouter);
+app.use('/api/auth', oauthRouter);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {

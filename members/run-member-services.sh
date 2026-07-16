@@ -61,6 +61,15 @@ DRP_ADAPTER_DIR="${SCRIPT_DIR}/drp/data-sources/drp-api-adapter"
 RGD_DIR="${SCRIPT_DIR}/rgd/data-sources/rgd-api"
 DIE_DIR="${SCRIPT_DIR}/die/applications/online-passport-app"
 
+# Passport app external-IdP (Asgardeo) login proxy config. The user authenticates
+# at this OIDC provider; /api/auth/token exchanges the auth code here, injecting
+# the client_secret server-side. Override any of these via the environment.
+# SSO_CLIENT_ID must match the client build's VITE_OIDC_CLIENT_ID.
+SSO_TOKEN_URL="${SSO_TOKEN_URL:-https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token}"
+SSO_CLIENT_ID="${SSO_CLIENT_ID:-38n179hPboGranyWgDSaUdbIaeca}"
+SSO_CLIENT_SECRET="${SSO_CLIENT_SECRET:-gmetGhqxJ6tRfwxz9NoLZRBAu2_Vc7Dc1mYBULJpmW8a}"
+SSO_TLS_INSECURE="${SSO_TLS_INSECURE:-false}"
+
 # Function to print colored messages
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -296,6 +305,10 @@ run_die() {
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://${HOST_IP}:9081/public/graphql" \
         -e "TOKEN_URL=https://${HOST_IP}:${IDP_PORT:-8090}/oauth2/token" \
+        -e "SSO_TOKEN_URL=${SSO_TOKEN_URL}" \
+        -e "SSO_CLIENT_ID=${SSO_CLIENT_ID}" \
+        -e "SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET}" \
+        -e "SSO_TLS_INSECURE=${SSO_TLS_INSECURE}" \
         --restart unless-stopped \
         "$DIE_IMAGE"
 

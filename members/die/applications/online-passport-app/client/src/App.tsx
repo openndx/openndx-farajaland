@@ -3,7 +3,6 @@ import apolloClient from './lib/apollo-client';
 import { AuthProvider } from './context/AuthProvider';
 import { Toaster } from './components/ui/toaster';
 import Home from './pages/Home';
-import Login from './pages/Login';
 import Apply from './pages/Apply';
 import Status from './pages/Status';
 import Success from './pages/Success';
@@ -17,7 +16,6 @@ function App() {
         <Router>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
             <Route path="/apply" element={<Apply />} />
             <Route path="/status" element={<Status />} />
             <Route path="/success" element={<Success />} />

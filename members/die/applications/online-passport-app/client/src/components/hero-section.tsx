@@ -3,11 +3,11 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plane, MapPin, ExternalLink } from "lucide-react"
-import {useAuthContext} from "@asgardeo/auth-react";
+import {useAuth} from "react-oidc-context";
 
 export function HeroSection() {
 
-  const { signIn } = useAuthContext()
+  const auth = useAuth()
 
   return (
     <div className="relative min-h-[600px] bg-gradient-to-br from-cyan-50 to-blue-100">
@@ -46,11 +46,12 @@ export function HeroSection() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Instructions
                 </Button>
-                <Button onClick={() => signIn()} asChild className="w-full bg-primary hover:bg-primary/90">
-                  <a href="/login">
-                    Apply Passport
-                    <ExternalLink className="h-4 w-4 ml-2" />
-                  </a>
+                <Button
+                  onClick={() => auth.signinRedirect({ state: { returnTo: "/apply" } })}
+                  className="w-full bg-primary hover:bg-primary/90"
+                >
+                  Apply Passport
+                  <ExternalLink className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             </CardContent>
@@ -73,11 +74,12 @@ export function HeroSection() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Instructions
                 </Button>
-                <Button onClick={() => signIn()} asChild className="w-full bg-primary hover:bg-primary/90">
-                  <a href="/apply">
-                    Apply Passport
-                    <ExternalLink className="h-4 w-4 ml-2" />
-                  </a>
+                <Button
+                  onClick={() => auth.signinRedirect({ state: { returnTo: "/apply" } })}
+                  className="w-full bg-primary hover:bg-primary/90"
+                >
+                  Apply Passport
+                  <ExternalLink className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             </CardContent>

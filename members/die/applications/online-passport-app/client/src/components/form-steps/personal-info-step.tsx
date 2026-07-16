@@ -1,6 +1,7 @@
 "use client"
 
 import {useState, useEffect, useCallback, useRef} from "react"
+import { useAuth } from "react-oidc-context"
 import { FormFieldWrapper } from "@/components/form-field-wrapper"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -45,21 +46,11 @@ export function PersonalInfoStep() {
   const { updateFormData, formData, setStepValid, currentStep } = useMultiStepForm()
   const { toast } = useToast()
   const { loadPersonInfo, loading: loadingPersonInfo } = usePersonInfo()
+  const auth = useAuth()
   const lastValidationRef = useRef<boolean | null>(null)
 
-  // Get NIC from logged-in user
-  const getUserNic = () => {
-    try {
-      const storedUser = localStorage.getItem("sludi_user")
-      if (storedUser) {
-        const user = JSON.parse(storedUser)
-        return user.nic || ""
-      }
-    } catch (error) {
-      console.error("Error parsing user from localStorage:", error)
-    }
-    return ""
-  }
+  // Get NIC from the logged-in OIDC user (email is used as the identifier / NIC).
+  const getUserNic = () => auth.user?.profile.email || ""
 
   const [personalData, setPersonalData] = useState({
     nic: getUserNic(),

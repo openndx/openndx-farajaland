@@ -1,4 +1,5 @@
 import {CombinedGraphQLErrors, gql} from '@apollo/client';
+import { useAuth } from 'react-oidc-context';
 import { useToast } from './use-toast';
 import {useLazyQuery} from "@apollo/client/react";
 
@@ -69,6 +70,7 @@ function waitForConsentGranted(): Promise<void> {
  */
 export function usePersonInfo(): UsePersonInfoResult {
   const { toast } = useToast();
+  const auth = useAuth();
   const [getPersonInfo, { loading }] = useLazyQuery<{
     personInfo: PersonInfoData;
   }>(GET_PERSON_INFO, {
@@ -77,9 +79,10 @@ export function usePersonInfo(): UsePersonInfoResult {
   });
 
   const loadPersonInfo = async (): Promise<PersonInfoData | null> => {
-      // Get user data from localStorage
-      const userData = localStorage.getItem('sludi_user');
-      if (!userData) {
+      // The logged-in user's identity comes from the OIDC session. The email is
+      // used as the person's identifier / NIC (see client .env VITE_OIDC_SCOPE).
+      const profile = auth.user?.profile;
+      if (!profile) {
         toast({
           title: 'Error',
           description: 'User information not found. Please log in again.',
@@ -88,8 +91,7 @@ export function usePersonInfo(): UsePersonInfoResult {
         return null;
       }
 
-      const user = JSON.parse(userData);
-      const nic = user.nic || user.sub;
+      const nic = profile.email || profile.sub;
 
       if (!nic) {
         toast({
