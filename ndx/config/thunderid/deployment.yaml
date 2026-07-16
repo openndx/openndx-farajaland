@@ -2,6 +2,11 @@ server:
   hostname: {{.HOSTNAME}}
   public_url: {{.PUBLIC_URL}}
   port: {{.PORT}}
+  security:
+    # Gates ThunderID's Direct API (atomic auth / flow-execute) endpoints. Added in
+    # 0.48 (setup.sh auto-generates one otherwise); pinned here so setup and runtime
+    # agree. Callers of the Direct API send it in the `Direct-Auth-Secret` header.
+    direct_auth_secret: {{.DIRECT_AUTH_SECRET}}
 
 tls:
   min_version: "1.3"
@@ -36,6 +41,17 @@ database:
       max_idle_conns: 100
       conn_max_lifetime: 3600
 
+  # Operation store — new 4th database introduced in ThunderID 0.48 (the image's
+  # thunderid-db-init seeds operationdb.db into the thunderid-db volume).
+  operation:
+    type: "sqlite"
+    sqlite:
+      path: "database/operationdb.db"
+      options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
+      max_open_conns: 500
+      max_idle_conns: 100
+      conn_max_lifetime: 3600
+
 crypto:
   encryption:
     key: "file://config/certs/crypto.key"
@@ -45,6 +61,10 @@ crypto:
     - id: "default-key"
       cert_file: "config/certs/signing.cert"
       key_file: "config/certs/signing.key"
+    # Second signing key added in 0.48 (image-provided certs); matches the upstream default.
+    - id: "ecdsa-key"
+      cert_file: "config/certs/ecdsa-signing.cert"
+      key_file: "config/certs/ecdsa-signing.key"
 
 jwt:
   preferred_key_id: "default-key"
@@ -59,11 +79,9 @@ email:
     enable_start_tls: {{.SMTP_ENABLE_START_TLS}}
     enable_authentication: {{.SMTP_ENABLE_AUTHENTICATION}}
 
-cors:
-  allowed_origins:
-{{- range .CORS_ORIGINS }}
-    - {{.}}
-{{- end }}
+# NOTE: the static `cors:` block was removed in ThunderID 0.48 — the config schema
+# no longer accepts it (CORS is now dynamic / auto-configured from registered app
+# origins). Leaving it here makes the server fail to start.
 
 passkey:
   allowed_origins:

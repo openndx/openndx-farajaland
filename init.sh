@@ -266,11 +266,11 @@ for i in $(seq 1 30); do
 done
 
 # Step 1: Mint a system-scoped management token from the admin-cli M2M client.
-# admin-cli (client_id ADMIN_CLI) and its Administrator role grant were already
-# created by config/thunderid/bootstrap/02-admin-cli.sh during the
-# thunderid-setup phase (server ran with security disabled at that point), so
-# no temporary throwaway app is needed here - this single call replaces WSO2's
-# entire temp-DCR-app + scope-granting dance.
+# admin-cli (client_id ADMIN_CLI) and its system-scoped role grant were already
+# created by config/thunderid/bootstrap/02-admin-cli.yaml, imported by ThunderID's
+# in-process bootstrap during the thunderid-setup phase, so no temporary throwaway
+# app is needed here - this single call replaces WSO2's entire temp-DCR-app +
+# scope-granting dance.
 print_info "Minting admin-cli management token..."
 TOKEN_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/oauth2/token \
   --insecure \
@@ -301,6 +301,34 @@ thunderid_api_call() {
         -H "Authorization: Bearer $ACCESS_TOKEN" -w '%{http_code}')
     [ -n "$body" ] && curl_args+=(-d "$body")
     curl "${curl_args[@]}" "https://$THUNDERID_URL${path}"
+}
+
+# Configure server-wide CORS allowed origins. ThunderID 0.48 removed the static
+# `cors` block from deployment.yaml; CORS is now a server-config section. The
+# browser-facing apps call /oauth2/token cross-origin - the Console served from
+# https://localhost:8090 (and https://thunderid:8090) and the Consent Portal
+# (CONSENT_PORTAL_APP) from http://localhost:5173 - so their origins must be
+# allowed here. This sets the writable layer (PUT /server-config/cors), which is
+# DB-backed and read by the running server's dynamic CORS matcher.
+configure_cors() {
+    local CONSENT_PORTAL_ORIGIN="${CONSENT_PORTAL_URL:-http://localhost:5173}"
+    local RESPONSE HTTP_CODE CORS_PAYLOAD
+    read -r -d '' CORS_PAYLOAD <<JSON || true
+{
+    "allowedOrigins": [
+        "${CONSENT_PORTAL_ORIGIN}",
+        "https://localhost:${IDP_PORT}",
+        "https://thunderid:${IDP_PORT}"
+    ]
+}
+JSON
+    RESPONSE=$(thunderid_api_call PUT "/server-config/cors" "$CORS_PAYLOAD")
+    HTTP_CODE="${RESPONSE: -3}"
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
+        print_success "Configured CORS allowed origins (Console + Consent Portal)"
+    else
+        print_warning "Failed to configure CORS allowed origins (HTTP $HTTP_CODE) - browser apps may hit CORS errors"
+    fi
 }
 
 get_ou_id_by_handle() {
@@ -346,7 +374,7 @@ create_m2m_application() {
                 "tokenEndpointAuthMethod": "client_secret_basic",
                 "pkceRequired": false,
                 "publicClient": false,
-                "token": { "accessToken": { "validityPeriod": 3600 } }
+                "token": { "accessToken": { "clientConfig": { "validityPeriod": 3600 } } }
             }
         }
     ],
@@ -398,7 +426,7 @@ create_spa_application() {
                 "pkceRequired": true,
                 "publicClient": true,
                 "token": {
-                    "accessToken": { "validityPeriod": 3600, "userAttributes": ["email"] },
+                    "accessToken": { "userConfig": { "validityPeriod": 3600, "attributes": ["email"] } },
                     "idToken": { "validityPeriod": 3600 }
                 }
             }
@@ -426,6 +454,11 @@ JSON
 
 # Look up the default Organization Unit id (image-provided, created by
 # 01-default-resources.sh) - needed as ouId for every application/user below.
+# Allow the browser apps' origins to call ThunderID cross-origin before we create
+# the apps they belong to.
+configure_cors
+echo ""
+
 DEFAULT_OU_ID=$(get_ou_id_by_handle "default")
 if [ -z "$DEFAULT_OU_ID" ]; then
     print_error "Failed to resolve default organization unit"

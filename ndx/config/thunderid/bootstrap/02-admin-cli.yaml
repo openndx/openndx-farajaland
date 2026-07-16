@@ -1,0 +1,56 @@
+# ============================================================================
+# Declarative bootstrap resource: the `admin-cli` machine-to-machine application.
+#
+# ThunderID 0.48 replaced the shell-script bootstrap (setup.sh running
+# ./bootstrap/*.sh with security disabled) with an in-process orchestrator that
+# imports every *.yaml/*.json resource-definition file found under
+# /opt/thunderid/bootstrap (internal/system/bootstrap/orchestrator.go). This file
+# is mounted into that directory and is loaded after the image's
+# 01-default-resources.yaml. It replaces the old 02-admin-cli.sh.
+#
+# It declares:
+#   1. the admin-cli M2M OAuth2 app (client_id=ADMIN_CLI, client_credentials), and
+#   2. a role granting `system` on the System resource server, assigned to the app.
+#
+# The role->app assignment is what makes admin-cli's client_credentials token carry
+# the `system` scope + audience, which init.sh uses to mint a management token:
+#   curl -k -u ADMIN_CLI:$ADMIN_CLI_SECRET \
+#     -d 'grant_type=client_credentials&scope=system' https://thunderid:8090/oauth2/token
+#
+# {{ .ADMIN_CLI_SECRET }} is resolved from the container environment at bootstrap
+# time (SubstituteEnvironmentVariables); the thunderid-setup service sets it.
+#
+# resource_type: application
+id: 01990048-0000-7000-8000-0000000000a1
+name: admin-cli
+description: Admin CLI machine client for management API access
+ouId: 01900000-0000-7000-8000-000000000001
+allowedUserTypes: []
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: ADMIN_CLI
+      clientSecret: "{{ .ADMIN_CLI_SECRET }}"
+      grantTypes:
+        - client_credentials
+      tokenEndpointAuthMethod: client_secret_basic
+      pkceRequired: false
+      publicClient: false
+      token:
+        accessToken:
+          # 0.48 split token config by subject: client_credentials tokens use clientConfig.
+          clientConfig:
+            validityPeriod: 3600
+---
+# resource_type: role
+id: 01990048-0000-7000-8000-0000000000a2
+name: AdminCLISystem
+description: Grants the admin-cli app the system scope on the System resource server
+ouHandle: default
+permissions:
+  - resourceServerId: 01900000-0000-7000-8000-000000000020
+    permissions:
+      - system
+assignments:
+  - id: 01990048-0000-7000-8000-0000000000a1
+    type: app
