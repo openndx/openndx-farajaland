@@ -58,7 +58,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
       - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
       - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-1234}
-      - PUBLIC_URL=${IDP_BASE_URL:-https://thunderid:8090}
+      - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
       - PORT=${IDP_PORT:-8090}
       - HOSTNAME=0.0.0.0
       - SMTP_HOST=${SMTP_HOST:-localhost}
@@ -89,7 +89,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
       - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
       - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-1234}
-      - PUBLIC_URL=${IDP_BASE_URL:-https://thunderid:8090}
+      - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
       - PORT=${IDP_PORT:-8090}
       - HOSTNAME=0.0.0.0
       # CORS is no longer configured via deployment.yaml/env in 0.48. Allowed origins
@@ -185,7 +185,7 @@ services:
       - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       # Generic IdP config (verifier validates issuer + audience + client_id, no org).
-      - IDP_ISSUER=${IDP_ISSUER:-https://thunderid:8090}
+      - IDP_ISSUER=${IDP_ISSUER:-https://localhost:8090}
       - IDP_AUDIENCE=${IDP_AUDIENCE:-CONSENT_PORTAL_APP}
       - IDP_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-CONSENT_PORTAL_APP}
       - IDP_JWKS_URL=${IDP_JWKS_URL:-https://thunderid:8090/oauth2/jwks}
@@ -214,10 +214,11 @@ services:
     environment:
       - VITE_API_URL=http://localhost:9081/api/v1
       - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
-      # NOTE: The default value for VITE_BASE_URL uses 'https://thunderid:8090'.
-      # Make sure 'thunderid' resolves correctly in your browser context (e.g., by adding it to /etc/hosts).
-      # See SETUP.md for more details.
-      - VITE_BASE_URL=${IDP_BASE_URL:-https://thunderid:8090}
+      # VITE_BASE_URL is the IdP the browser is redirected to for login, so it must
+      # be reachable from the browser. For this local stack IDP_BASE_URL is
+      # https://localhost:8090 (see ndx/.env) - the browser reaches it directly and
+      # ThunderID's dev cert is CN=localhost, so no /etc/hosts entry is required.
+      - VITE_BASE_URL=${IDP_BASE_URL:-https://localhost:8090}
       - VITE_SCOPE=openid profile email
       - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
       - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173

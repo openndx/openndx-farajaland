@@ -13,9 +13,11 @@
 #   2. a role granting `system` on the System resource server, assigned to the app.
 #
 # The role->app assignment is what makes admin-cli's client_credentials token carry
-# the `system` scope + audience, which init.sh uses to mint a management token:
+# the `system` scope + audience, which init.sh uses to mint a management token
+# (init.sh runs on the host and reaches ThunderID at the published localhost:8090
+# port, so no /etc/hosts entry is needed):
 #   curl -k -u ADMIN_CLI:$ADMIN_CLI_SECRET \
-#     -d 'grant_type=client_credentials&scope=system' https://thunderid:8090/oauth2/token
+#     -d 'grant_type=client_credentials&scope=system' https://localhost:8090/oauth2/token
 #
 # {{ .ADMIN_CLI_SECRET }} is resolved from the container environment at bootstrap
 # time (SubstituteEnvironmentVariables); the thunderid-setup service sets it.

@@ -60,35 +60,19 @@ git clone https://github.com/opendif/opendif-farajaland.git
 cd opendif-farajaland
 ```
 
-### 2. Configure Hostname Resolution
+### 2. Hostname Resolution (No Action Needed)
 
-Since ThunderID runs inside the Docker network with the hostname `thunderid`, you need to add this hostname to your `/etc/hosts` file for proper DNS resolution:
+**No `/etc/hosts` changes are required.**
 
-**macOS/Linux:**
-```bash
-# Add thunderid hostname to /etc/hosts
-echo "127.0.0.1       thunderid" | sudo tee -a /etc/hosts
-```
+ThunderID's OIDC issuer is `https://localhost:8090`. Your browser reaches it
+directly, and the containers reach ThunderID over the Docker network — so a single
+issuer works everywhere with no host-file edits and no host-IP detection.
 
-**Windows:**
-1. Open Notepad as Administrator
-2. Open `C:\Windows\System32\drivers\etc\hosts`
-3. Add the following line at the end:
-   ```
-   127.0.0.1       thunderid
-   ```
-4. Save the file
-
-**Verify the configuration:**
-```bash
-ping thunderid
-```
-
-Once ThunderID is running, open `https://thunderid:8090` in your browser once and
-accept the self-signed certificate warning — otherwise the Consent Portal's
-redirect to ThunderID's login page will silently fail with a TLS error.
-
-You should see responses from `127.0.0.1`.
+> **Accept the self-signed certificate once.** ThunderID serves a self-signed dev
+> certificate (issued for `localhost`). After `init.sh` reports the services are
+> healthy, open `https://localhost:8090` in your browser once and accept the
+> certificate warning — otherwise the Consent Portal's redirect to ThunderID's
+> login page will silently fail with a TLS error.
 
 ### 3. Make the Initialization Script Executable
 
@@ -182,7 +166,7 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-https://thunderid:8090/oauth2/token
+https://localhost:8090/oauth2/token
 
 Public API Gateway:
 http://localhost:9081/public/*
@@ -290,13 +274,16 @@ an `ADMIN_CLI` M2M client with management API access during `docker-compose up`,
 you can create the required applications with curl instead of a browser console:
 
 ```bash
+# Run from the host shell, which reaches ThunderID at the published localhost:8090
+# port - no /etc/hosts entry needed.
+
 # Mint a management token from the ADMIN_CLI client created during bootstrap
 TOKEN=$(curl -k -s -u "ADMIN_CLI:${ADMIN_CLI_SECRET:-1234}" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" -d "scope=system" \
-  https://thunderid:8090/oauth2/token | jq -r .access_token)
+  https://localhost:8090/oauth2/token | jq -r .access_token)
 
-# Use $TOKEN as a Bearer token against https://thunderid:8090/applications
+# Use $TOKEN as a Bearer token against https://localhost:8090/applications
 # (POST) to create an M2M application for the API Gateway and an SPA
 # application for the Consent Portal. Note down the client IDs and secrets.
 ```
@@ -305,34 +292,46 @@ Or simply run `./init.sh`, which performs all of this automatically.
 
 ### Step 3: Register API Gateway Routes
 
-Update the APISIX routes with your client credentials:
+Register the APISIX routes. APISIX verifies each token's RS256 signature locally
+against ThunderID's signing public key, so first extract that key from the
+ThunderID container:
 
 ```bash
-# Replace $CLIENT_ID and $CLIENT_SECRET with your values
-curl --location --request PUT http://localhost:9180/apisix/admin/routes \
-  --header "Content-Type: application/json" \
-  --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
-  --data '{
-    "uri": "/public/*",
-    "methods": ["GET", "POST"],
-    "upstream": {
-      "type": "roundrobin",
-      "nodes": {
-        "orchestration-engine:4000": 1
-      }
-    },
-    "plugins": {
+# Extract ThunderID's signing public key (PEM)
+docker cp "$(cd ndx && docker-compose ps -q thunderid):/opt/thunderid/config/certs/signing.cert" /tmp/signing.cert
+PUBLIC_KEY=$(openssl x509 -in /tmp/signing.cert -pubkey -noout)
+
+# Register the OE route (jq inlines the PEM with correct JSON escaping)
+jq -n --arg pk "$PUBLIC_KEY" '{
+    uri: "/public/*",
+    methods: ["GET", "POST"],
+    upstream: { type: "roundrobin", nodes: { "orchestration-engine:4000": 1 } },
+    plugins: {
       "openid-connect": {
-        "discovery": "https://thunderid:8090/.well-known/openid-configuration",
-        "bearer_only": true,
-        "client_id": "YOUR_CLIENT_ID",
-        "client_secret": "YOUR_CLIENT_SECRET",
-        "ssl_verify": false
+        client_id: "ndx-api-gateway",
+        discovery: "https://localhost:8090/.well-known/openid-configuration",
+        bearer_only: true,
+        public_key: $pk,
+        token_signing_alg_values_expected: "RS256",
+        claim_validator: { issuer: { valid_issuers: ["https://localhost:8090"] } },
+        set_userinfo_header: true,
+        ssl_verify: false
       }
     },
-    "id": "oe-endpoint"
-  }'
+    id: "oe-endpoint"
+  }' | curl --location --request PUT http://localhost:9180/apisix/admin/routes \
+    --header "Content-Type: application/json" \
+    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --data @-
 ```
+
+> **Why local (public_key) validation instead of JWKS?** With the issuer set to
+> `https://localhost:8090`, the JWKS URL advertised in the discovery document is
+> `https://localhost:8090/oauth2/jwks`, which the APISIX container cannot reach
+> (`localhost` there means APISIX itself). Verifying the RS256 signature locally
+> against ThunderID's public key needs no network call to the IdP — the `localhost`
+> issuer is only ever compared as a string (`valid_issuers`), never dereferenced.
+> `client_id` is required by the plugin schema but unused for local verification.
 
 ### Step 4: Start Member Services
 

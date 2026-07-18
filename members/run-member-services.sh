@@ -295,13 +295,18 @@ run_die() {
     fi
 
     print_step "Starting Online Passport App container..."
+    # This container is NOT on the exchange-network, so it reaches the published
+    # NDX ports via host.docker.internal (the same host alias the orchestration
+    # engine uses for data sources in ndx/fl-config.json). `localhost` here would
+    # mean the container itself, and we no longer detect a host IP.
     docker run -d \
         --name "$DIE_CONTAINER" \
         -p 3000:3000 \
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
-        -e "NDX_GRAPHQL_API_URL=http://${HOST_IP}:9081/public/graphql" \
-        -e "TOKEN_URL=https://${HOST_IP}:${IDP_PORT:-8090}/oauth2/token" \
+        -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9081/public/graphql" \
+        -e "TOKEN_URL=https://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
+        --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$DIE_IMAGE"
 
