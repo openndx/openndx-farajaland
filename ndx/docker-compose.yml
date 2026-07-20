@@ -107,6 +107,7 @@ services:
       - SMTP_ENABLE_START_TLS=${SMTP_ENABLE_START_TLS:-false}
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
       - IDP_BROWSER_URL=${IDP_BROWSER_URL:-https://thunderid:8090}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - thunderid-db:/opt/thunderid/database
       - consent-db:/opt/thunderid/consent/repository/database

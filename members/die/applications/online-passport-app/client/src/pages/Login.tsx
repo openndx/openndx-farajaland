@@ -39,7 +39,7 @@ export default function Login() {
         .then((data) => {
           console.log("[Auth] Token exchange successful. Decoding ID token...");
           try {
-            const tokenToDecode = data.idToken || data.token;
+            const tokenToDecode = data?.idToken || data?.token;
             const parts = tokenToDecode ? tokenToDecode.split(".") : [];
             if (parts.length >= 2) {
               const payloadBase64 = parts[1];

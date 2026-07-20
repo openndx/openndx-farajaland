@@ -97,11 +97,19 @@ if [ -f "${SCRIPT_DIR}/../ndx/.env" ]; then
             if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
                 var_name="${BASH_REMATCH[1]}"
                 var_val="${BASH_REMATCH[2]}"
+                # Strip trailing comments starting with space + #
+                if [[ "$var_val" =~ ^(.*[^[:space:]])[[:space:]]+#.*$ ]]; then
+                    var_val="${BASH_REMATCH[1]}"
+                elif [[ "$var_val" =~ ^[[:space:]]*#.*$ ]]; then
+                    var_val=""
+                fi
                 # Strip surrounding quotes if present
                 var_val="${var_val#\"}"
                 var_val="${var_val%\"}"
                 var_val="${var_val#\'}"
                 var_val="${var_val%\'}"
+                # Trim trailing whitespace
+                var_val="${var_val%"${var_val##*[![:space:]]}"}"
                 # Only set if not already present in the environment
                 if [ -z "${!var_name+x}" ]; then
                     export "$var_name=$var_val"

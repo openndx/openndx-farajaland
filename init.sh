@@ -57,11 +57,19 @@ if [ -f "${NDX_DIR}/.env" ]; then
             if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
                 var_name="${BASH_REMATCH[1]}"
                 var_val="${BASH_REMATCH[2]}"
+                # Strip trailing comments starting with space + #
+                if [[ "$var_val" =~ ^(.*[^[:space:]])[[:space:]]+#.*$ ]]; then
+                    var_val="${BASH_REMATCH[1]}"
+                elif [[ "$var_val" =~ ^[[:space:]]*#.*$ ]]; then
+                    var_val=""
+                fi
                 # Strip surrounding quotes if present
                 var_val="${var_val#\"}"
                 var_val="${var_val%\"}"
                 var_val="${var_val#\'}"
                 var_val="${var_val%\'}"
+                # Trim trailing whitespace
+                var_val="${var_val%"${var_val##*[![:space:]]}"}"
                 # Only set if not already present in the environment (allows
                 # overrides via `VAR=val ./init.sh`)
                 if [ -z "${!var_name+x}" ]; then
@@ -653,6 +661,69 @@ print_success "=========================================="
 echo ""
 print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
+echo ""
+
+# Enable token exchange on the Google IDP. ThunderID's declarative bootstrap
+# doesn't accept token_exchange_enabled/trusted_token_audience as IDP
+# properties, so we patch the IDP record in the config database directly
+# and restart ThunderID to pick up the change.
+if [ -n "${GOOGLE_CLIENT_ID}" ]; then
+    print_info "Enabling token exchange for Google IDP..."
+
+    GOOGLE_IDP_ID="01900000-0000-7000-8000-000000000080"
+    IDP_CONTAINER="thunderid-${ENVIRONMENT:-local}"
+
+    # Read current properties, inject token_exchange_enabled + trusted_token_audience
+    CURRENT_PROPS=$(docker exec -i "$IDP_CONTAINER" sqlite3 database/configdb.db \
+        "SELECT properties FROM IDP WHERE id='${GOOGLE_IDP_ID}';" 2>/dev/null || echo "")
+
+    if [ -n "$CURRENT_PROPS" ]; then
+        # Build new properties JSON with token exchange fields added
+        NEW_PROPS=$(echo "$CURRENT_PROPS" | python3 -c "
+import json, sys
+props = json.loads(sys.stdin.read().strip())
+props['token_exchange_enabled'] = {'value': 'true', 'isSecret': False}
+props['trusted_token_audience'] = {'value': '${GOOGLE_CLIENT_ID}', 'isSecret': False}
+props['jwks_endpoint'] = {'value': 'https://www.googleapis.com/oauth2/v3/certs', 'isSecret': False}
+print(json.dumps(props))
+" 2>/dev/null || echo "")
+
+        if [ -n "$NEW_PROPS" ]; then
+            docker exec -i "$IDP_CONTAINER" sqlite3 database/configdb.db \
+                "UPDATE IDP SET properties = '${NEW_PROPS}' WHERE id = '${GOOGLE_IDP_ID}';" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                print_success "Token exchange enabled for Google IDP"
+                # Restart ThunderID so it picks up the updated IDP config
+                print_info "Restarting ThunderID to apply IDP configuration..."
+                docker restart "$IDP_CONTAINER" > /dev/null 2>&1
+
+                # Wait for ThunderID to be healthy again
+                HEALTH_TIMEOUT=30
+                HEALTH_ELAPSED=0
+                while [ $HEALTH_ELAPSED -lt $HEALTH_TIMEOUT ]; do
+                    if curl -k -s -o /dev/null "https://localhost:${IDP_PORT:-8090}/" 2>/dev/null; then
+                        break
+                    fi
+                    sleep 2
+                    HEALTH_ELAPSED=$((HEALTH_ELAPSED + 2))
+                done
+                if [ $HEALTH_ELAPSED -lt $HEALTH_TIMEOUT ]; then
+                    print_success "ThunderID restarted successfully"
+                else
+                    print_warning "ThunderID may still be starting up"
+                fi
+            else
+                print_warning "Failed to update IDP properties in database"
+            fi
+        else
+            print_warning "Failed to build updated IDP properties JSON"
+        fi
+    else
+        print_warning "Google IDP not found in database (skipping token exchange setup)"
+    fi
+else
+    print_info "GOOGLE_CLIENT_ID not set, skipping Google IDP token exchange setup"
+fi
 echo ""
 
 # Create a mock user via ThunderID's User Management API (no SCIM2 equivalent

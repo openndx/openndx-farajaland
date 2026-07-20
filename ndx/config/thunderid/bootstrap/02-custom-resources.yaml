@@ -141,38 +141,5 @@ attributeConfiguration:
   accountLinking:
     attributes:
       - email
----
-# resource_type: flow
-id: 01900000-0000-7000-8000-000000000061
-name: Default Authentication Flow
-handle: default-flow
-flowType: AUTHENTICATION
-nodes:
-  - id: start
-    type: START
-    onSuccess: google_auth
-  - id: google_auth
-    type: TASK_EXECUTION
-    properties:
-      idpId: 01900000-0000-7000-8000-000000000080
-      allowAuthenticationWithoutLocalUser: true
-    executor:
-      name: GoogleOIDCAuthExecutor
-      inputs:
-        - ref: input_google_code
-          type: TEXT_INPUT
-          identifier: code
-          required: true
-    onSuccess: authorization_check
-  - id: authorization_check
-    type: TASK_EXECUTION
-    executor:
-      name: AuthorizationExecutor
-    onSuccess: auth_assert
-  - id: auth_assert
-    type: TASK_EXECUTION
-    executor:
-      name: AuthAssertExecutor
-    onSuccess: end
-  - id: end
-    type: END
+
+

@@ -16,8 +16,8 @@ This guide explains how to set up and test the **Google Direct Federation** flow
 2. Click **Create Credentials** → **OAuth Client ID**
 3. Application type: **Web application**
 4. Add the following **Authorized redirect URIs**:
-   - `http://localhost:3000/login` (Passport App)
-   - `https://localhost:8090/gate/signin` (ThunderID / Consent Portal)
+   - `http://localhost:3000/login` (Passport App redirect URI)
+   - `https://localhost:8090/commonauth` (ThunderID OIDC Callback URI)
 5. Copy the **Client ID** and **Client Secret**
 
 ---
@@ -152,7 +152,7 @@ If you see `Google Federation: Not configured`, double-check your `GOOGLE_CLIENT
 ### Google redirects to wrong URL
 
 - Ensure `IDP_BROWSER_URL=https://localhost:8090` in `ndx/.env` (not `thunderid:8090`)
-- Ensure `https://localhost:8090/gate/signin` is listed in Google's authorized redirect URIs
+- Ensure `https://localhost:8090/commonauth` is listed in Google's authorized redirect URIs
 
 ### Federated user not created
 

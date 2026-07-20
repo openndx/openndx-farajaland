@@ -10,9 +10,10 @@ const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
 const thunderidTokenUrl = process.env.TOKEN_URL || 'https://localhost:8090/oauth2/token';
 const passportClientId = process.env.CLIENT_ID || '';
 const passportClientSecret = process.env.CLIENT_SECRET || '';
+const tokenExchangeAudience = process.env.TOKEN_EXCHANGE_AUDIENCE || 'ndx-api-gateway';
 
 if (!googleClientId || !googleClientSecret || !passportClientId || !passportClientSecret) {
-  console.warn('[Auth] Warning: Missing required OAuth configuration environment variables (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, CLIENT_ID, CLIENT_SECRET). Authentication flows may fail.');
+  console.warn('[Auth] Missing required OAuth environment variables. Authentication flows may fail.');
 }
 
 // Google Auth Redirect Initiation
@@ -35,11 +36,11 @@ router.get('/google', (req: Request, res: Response) => {
     `&scope=openid%20profile%20email` +
     `&state=${encodeURIComponent(state)}`;
 
-  console.log(`[Auth] Redirecting to Google OIDC: ${googleAuthUrl}`);
   res.redirect(googleAuthUrl);
 });
 
-// Token Exchange Endpoint
+// Token Exchange Endpoint — exchanges a Google authorization code for a
+// ThunderID access token via RFC 8693 token exchange.
 router.post('/exchange', async (req: Request, res: Response) => {
   const { code, state } = req.body;
   const cookieState = req.cookies?.oauth_state;
@@ -62,9 +63,7 @@ router.post('/exchange', async (req: Request, res: Response) => {
     const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
     const redirectUri = `${appBaseUrl}/login`;
 
-    console.log(`[Auth] Exchanging code with Google for tokens. redirect_uri=${redirectUri}`);
-
-    // Exchange authorization code for Google tokens
+    // Step 1: Exchange authorization code for Google tokens
     const googleTokenRes = await axios.post(
       'https://oauth2.googleapis.com/token',
       new URLSearchParams({
@@ -84,21 +83,17 @@ router.post('/exchange', async (req: Request, res: Response) => {
       throw new Error('Google did not return an id_token');
     }
 
-    console.log('[Auth] Successfully obtained Google ID Token. Performing token exchange with ThunderID...');
-
-    // Exchange Google ID Token with ThunderID via RFC 8693 Token Exchange
+    // Step 2: Exchange Google ID Token with ThunderID via RFC 8693 Token Exchange
     const credentials = Buffer.from(`${passportClientId}:${passportClientSecret}`).toString('base64');
     let isLocal = false;
     try {
       const hostname = new URL(thunderidTokenUrl).hostname;
       isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === 'thunderid';
-    } catch (e) {
+    } catch {
       // Fallback if URL parsing fails
     }
     const rejectUnauthorized = process.env.REJECT_UNAUTHORIZED === 'false' ? false : !isLocal;
-    const httpsAgent = new https.Agent({
-      rejectUnauthorized
-    });
+    const httpsAgent = new https.Agent({ rejectUnauthorized });
 
     const thunderidRes = await axios.post(
       thunderidTokenUrl,
@@ -107,7 +102,7 @@ router.post('/exchange', async (req: Request, res: Response) => {
         subject_token: googleIdToken,
         subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
         client_id: passportClientId,
-        audience: passportClientId
+        audience: tokenExchangeAudience
       }).toString(),
       {
         headers: {
@@ -122,16 +117,17 @@ router.post('/exchange', async (req: Request, res: Response) => {
     if (!accessToken) {
       throw new Error('ThunderID did not return an access_token');
     }
-    console.log('[Auth] ThunderID Token Exchange successful.');
 
-    // Retrieve user info to build user session
-    // We parse the payload from Google's ID token or request user info
+    // Step 3: Parse user profile from the Google ID token claims
     const parts = googleIdToken.split('.');
     if (parts.length < 2) {
       throw new Error('Malformed Google ID token');
     }
-    const tokenPayloadBase64 = parts[1];
-    const userProfile = JSON.parse(Buffer.from(tokenPayloadBase64, 'base64url').toString('utf8'));
+    const userProfile = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+
+    if (!userProfile?.email) {
+      throw new Error('Google ID token is missing the required email claim');
+    }
 
     return res.json({
       name: userProfile.name || `${userProfile.given_name || ''} ${userProfile.family_name || ''}`.trim() || 'Google User',
@@ -146,7 +142,7 @@ router.post('/exchange', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('[Auth] Token exchange error:', error.response?.data || error.message);
+    console.error('[Auth] Token exchange failed:', error.response?.data || error.message);
     res.status(500).json({
       error: 'Failed to authenticate user via Google and ThunderID OIDC'
     });

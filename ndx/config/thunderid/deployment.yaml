@@ -7,6 +7,10 @@ server:
     # 0.48 (setup.sh auto-generates one otherwise); pinned here so setup and runtime
     # agree. Callers of the Direct API send it in the `Direct-Auth-Secret` header.
     direct_auth_secret: {{.DIRECT_AUTH_SECRET}}
+    trusted_issuer:
+      issuer: "https://accounts.google.com"
+      jwks_url: "https://www.googleapis.com/oauth2/v3/certs"
+      audience: "{{.GOOGLE_CLIENT_ID}}"
 
 tls:
   min_version: "1.3"
