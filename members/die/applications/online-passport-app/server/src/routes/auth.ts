@@ -107,7 +107,7 @@ router.post('/exchange', async (req: Request, res: Response) => {
         subject_token: googleIdToken,
         subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
         client_id: passportClientId,
-        audience: 'ndx-api-gateway'
+        audience: passportClientId
       }).toString(),
       {
         headers: {
