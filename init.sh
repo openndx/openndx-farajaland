@@ -249,27 +249,27 @@ thunderid_api_call() {
 }
 
 # Configure server-wide CORS allowed origins. ThunderID 0.48 removed the static
-# `cors` block from deployment.yaml; CORS is now a server-config section. The
-# browser-facing apps call /oauth2/token cross-origin - the Console served from
-# the issuer (https://localhost:8090) and the Consent Portal (CONSENT_PORTAL_APP)
-# from http://localhost:5173 - so their origins must be allowed here. This sets the
-# writable layer (PUT /server-config/cors), which is DB-backed and read by the
-# running server's dynamic CORS matcher.
+# `cors` block from deployment.yaml; CORS is now a server-config section. Only the
+# Consent Portal (CONSENT_PORTAL_APP, http://localhost:5173) calls /oauth2/token
+# cross-origin, so it is the only origin that needs allowing. The ThunderID Console
+# is served from the issuer itself (https://localhost:8090), so its /oauth2/token
+# calls are same-origin and need no CORS entry. This sets the writable layer
+# (PUT /server-config/cors), which is DB-backed and read by the running server's
+# dynamic CORS matcher.
 configure_cors() {
     local CONSENT_PORTAL_ORIGIN="${CONSENT_PORTAL_URL:-http://localhost:5173}"
     local RESPONSE HTTP_CODE CORS_PAYLOAD
     read -r -d '' CORS_PAYLOAD <<JSON || true
 {
     "allowedOrigins": [
-        "${CONSENT_PORTAL_ORIGIN}",
-        "https://localhost:${IDP_PORT}"
+        "${CONSENT_PORTAL_ORIGIN}"
     ]
 }
 JSON
     RESPONSE=$(thunderid_api_call PUT "/server-config/cors" "$CORS_PAYLOAD")
     HTTP_CODE="${RESPONSE: -3}"
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
-        print_success "Configured CORS allowed origins (Console + Consent Portal)"
+        print_success "Configured CORS allowed origins (Consent Portal)"
     else
         print_warning "Failed to configure CORS allowed origins (HTTP $HTTP_CODE) - browser apps may hit CORS errors"
     fi

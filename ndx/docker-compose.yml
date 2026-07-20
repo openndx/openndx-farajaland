@@ -92,9 +92,10 @@ services:
       - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
       - PORT=${IDP_PORT:-8090}
       - HOSTNAME=0.0.0.0
-      # CORS is no longer configured via deployment.yaml/env in 0.48. Allowed origins
-      # (Console + Consent Portal) are set at provisioning time by init.sh via
-      # PUT /server-config/cors (the server's dynamic CORS server-config section).
+      # CORS is no longer configured via deployment.yaml/env in 0.48. The Consent
+      # Portal origin is set at provisioning time by init.sh via PUT
+      # /server-config/cors (the server's dynamic CORS server-config section). The
+      # Console is served from the issuer, so its token calls are same-origin.
       - SMTP_HOST=${SMTP_HOST:-localhost}
       - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
