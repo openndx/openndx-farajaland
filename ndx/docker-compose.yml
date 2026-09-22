@@ -143,8 +143,8 @@ services:
       # longer read by the service and were silently ignored).
       - DB_HOST=postgres
       - DB_PORT=${PDP_DB_PORT:-5432}
-      - DB_USERNAME=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_USERNAME=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
       - DB_NAME=${PDP_DB_NAME:-testdb}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - RUN_MIGRATION=${RUN_MIGRATION:-false}
@@ -176,8 +176,8 @@ services:
       # (no such settings exist in its config any more), so they've been dropped.
       - DB_HOST=postgres
       - DB_PORT=${CE_DB_PORT:-5432}
-      - DB_USERNAME=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-1234}
+      - DB_USERNAME=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
       - DB_NAME=${CE_DB_NAME:-consent_engine}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}

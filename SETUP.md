@@ -378,6 +378,33 @@ lsof -ti:9081 | xargs kill -9
 # Or change the port in docker-compose.yml
 ```
 
+### Upgrading an Existing Environment
+
+If you already ran this stack before it moved to openndx-core v0.3.0 / ThunderID
+1.0.1, your persisted `pg_data` and `thunderid-db` volumes still hold the
+previous versions' schema and database files:
+
+- **Postgres**: consent-engine v0.3.0 dropped the `owner_email` column, and
+  `ndx/consent_engine_schema.sql` only runs once, when Postgres's data
+  directory is empty - an existing volume keeps the old `NOT NULL owner_email`
+  column, which breaks every consent creation.
+- **ThunderID**: 1.0.1 reads different database file names (`entitydb.db`,
+  `runtime_transient.db`, `runtime_persistent.db`) than 0.48 did
+  (`userdb.db`, `runtimedb.db`, `operationdb.db`) - an existing `thunderid-db`
+  volume seeded by 0.48 won't be recognized by 1.0.1, and any locally
+  registered users/apps in it won't carry over.
+
+Both are one-time SQLite/Postgres seed files, not migrations this stack runs
+automatically. Since this is a local reference/demo stack with no data worth
+preserving across a version bump, the fix is to wipe the volumes and let them
+reseed from scratch:
+
+```bash
+cd ndx
+docker compose down -v
+docker compose up -d
+```
+
 ### Service Health Check Failures
 
 **PostgreSQL not ready:**
