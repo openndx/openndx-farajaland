@@ -127,7 +127,6 @@ echo ""
 # needed for this local-only stack.
 export IDP_PORT="${IDP_PORT:-8090}"
 THUNDERID_URL=localhost:${IDP_PORT}
-ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
 
 # The OIDC issuer is https://localhost:8090 (set in ndx/.env). The browser reaches
 # it directly and ThunderID's dev cert is CN=localhost, so the cert matches, and
@@ -210,232 +209,26 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# Step 1: Mint a system-scoped management token from the admin-cli M2M client.
-# admin-cli (client_id ADMIN_CLI) and its system-scoped role grant were already
-# created by config/thunderid/bootstrap/02-admin-cli.yaml, imported by ThunderID's
-# in-process bootstrap during the thunderid-setup phase, so no temporary throwaway
-# app is needed here - this single call replaces WSO2's entire temp-DCR-app +
-# scope-granting dance.
-print_info "Minting admin-cli management token..."
-TOKEN_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/oauth2/token \
-  --insecure \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "ADMIN_CLI:$ADMIN_CLI_SECRET" \
-  -d "grant_type=client_credentials&scope=system")
-
-ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
-
-if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
-    print_error "Failed to mint admin-cli management token"
-    print_error "Response was: $TOKEN_RESPONSE"
-    exit 1
-fi
-
-print_success "Admin-cli management token obtained successfully!"
-echo ""
-
-# --- ThunderID Management API helpers -------------------------------------
-
-extract_first_id() {
-    echo "$1" | jq -r '.. | objects | .id // empty' 2>/dev/null | head -n 1
-}
-
-thunderid_api_call() {
-    local method="$1" path="$2" body="${3:-}"
-    local -a curl_args=(-s -S -X "$method" --insecure -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $ACCESS_TOKEN" -w '%{http_code}')
-    [ -n "$body" ] && curl_args+=(-d "$body")
-    curl "${curl_args[@]}" "https://$THUNDERID_URL${path}"
-}
-
-# Configure server-wide CORS allowed origins. ThunderID 0.48 removed the static
-# `cors` block from deployment.yaml; CORS is now a server-config section. Only the
-# Consent Portal (CONSENT_PORTAL_APP, http://localhost:5173) calls /oauth2/token
-# cross-origin, so it is the only origin that needs allowing. The ThunderID Console
-# is served from the issuer itself (https://localhost:8090), so its /oauth2/token
-# calls are same-origin and need no CORS entry. This sets the writable layer
-# (PUT /server-config/cors), which is DB-backed and read by the running server's
-# dynamic CORS matcher.
-configure_cors() {
-    local CONSENT_PORTAL_ORIGIN="${CONSENT_PORTAL_URL:-http://localhost:5173}"
-    local RESPONSE HTTP_CODE CORS_PAYLOAD
-    read -r -d '' CORS_PAYLOAD <<JSON || true
-{
-    "allowedOrigins": [
-        "${CONSENT_PORTAL_ORIGIN}"
-    ]
-}
-JSON
-    RESPONSE=$(thunderid_api_call PUT "/server-config/cors" "$CORS_PAYLOAD")
-    HTTP_CODE="${RESPONSE: -3}"
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
-        print_success "Configured CORS allowed origins (Consent Portal)"
-    else
-        print_warning "Failed to configure CORS allowed origins (HTTP $HTTP_CODE) - browser apps may hit CORS errors"
-    fi
-}
-
-get_ou_id_by_handle() {
-    local OU_HANDLE="$1"
-    local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunderid_api_call GET "/organization-units/tree/${OU_HANDLE}")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-    [ "$HTTP_CODE" != "200" ] && { echo ""; return; }
-    extract_first_id "$BODY"
-}
-
-# Look up the image-provided "Classic" theme id so the SPA login screen is themed.
-get_classic_theme_id() {
-    local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunderid_api_call GET "/design/themes")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-    [ "$HTTP_CODE" != "200" ] && { echo ""; return; }
-    echo "$BODY" | jq -r '.. | objects | select(.displayName == "Classic") | .id // empty' 2>/dev/null | head -n 1
-}
-
-# Create an M2M (client_credentials) application. On a 409 ("already exists")
-# it's treated as an idempotent no-op rather than a failure.
-create_m2m_application() {
-    local APP_NAME="$1" APP_DESCRIPTION="$2" CLIENT_ID_NEW="$3" CLIENT_SECRET_NEW="$4" OU_ID="$5"
-    local RESPONSE HTTP_CODE BODY
-
-    read -r -d '' APP_PAYLOAD <<JSON || true
-{
-    "name": "${APP_NAME}",
-    "description": "${APP_DESCRIPTION}",
-    "ouId": "${OU_ID}",
-    "isRegistrationFlowEnabled": false,
-    "assertion": { "validityPeriod": 3600 },
-    "inboundAuthConfig": [
-        {
-            "type": "oauth2",
-            "config": {
-                "clientId": "${CLIENT_ID_NEW}",
-                "clientSecret": "${CLIENT_SECRET_NEW}",
-                "grantTypes": ["client_credentials", "refresh_token"],
-                "tokenEndpointAuthMethod": "client_secret_basic",
-                "pkceRequired": false,
-                "publicClient": false,
-                "token": { "accessToken": { "clientConfig": { "validityPeriod": 3600 } } }
-            }
-        }
-    ],
-    "allowedUserTypes": []
-}
-JSON
-
-    RESPONSE=$(thunderid_api_call POST "/applications" "${APP_PAYLOAD}")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-
-    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
-        print_success "${APP_NAME} M2M application created successfully"
-    elif [ "$HTTP_CODE" = "409" ] || echo "$BODY" | grep -qE "Application already exists|APP-1022"; then
-        print_warning "${APP_NAME} M2M application already exists, reusing it"
-    else
-        print_error "Failed to create ${APP_NAME} M2M application (HTTP $HTTP_CODE)"
-        print_error "Response: $BODY"
-        exit 1
-    fi
-}
-
-# Create a SPA (authorization_code + PKCE) application. Idempotent like above.
-create_spa_application() {
-    local APP_NAME="$1" APP_DESCRIPTION="$2" CLIENT_ID_NEW="$3" REDIRECT_URI="$4" OU_ID="$5"
-    local RESPONSE HTTP_CODE BODY
-
-    # Attach the Classic theme (top-level app field) when it was resolved, so
-    # the login screen renders themed.
-    local THEME_FIELD=""
-    [ -n "$CLASSIC_THEME_ID" ] && THEME_FIELD="
-    \"themeId\": \"${CLASSIC_THEME_ID}\","
-
-    read -r -d '' APP_PAYLOAD <<JSON || true
-{
-    "name": "${APP_NAME}",
-    "description": "${APP_DESCRIPTION}",${THEME_FIELD}
-    "ouId": "${OU_ID}",
-    "isRegistrationFlowEnabled": false,
-    "inboundAuthConfig": [
-        {
-            "type": "oauth2",
-            "config": {
-                "clientId": "${CLIENT_ID_NEW}",
-                "redirectUris": ["${REDIRECT_URI}"],
-                "grantTypes": ["authorization_code", "refresh_token"],
-                "responseTypes": ["code"],
-                "tokenEndpointAuthMethod": "none",
-                "pkceRequired": true,
-                "publicClient": true,
-                "token": {
-                    "accessToken": { "userConfig": { "validityPeriod": 3600, "attributes": ["email"] } },
-                    "idToken": { "validityPeriod": 3600 }
-                }
-            }
-        }
-    ],
-    "allowedUserTypes": ["Person"]
-}
-JSON
-
-    RESPONSE=$(thunderid_api_call POST "/applications" "${APP_PAYLOAD}")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-
-    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
-        print_success "${APP_NAME} SPA application created successfully"
-    elif [ "$HTTP_CODE" = "409" ] || echo "$BODY" | grep -qE "Application already exists|APP-1022"; then
-        print_warning "${APP_NAME} SPA application already exists, reusing it"
-    else
-        print_error "Failed to create ${APP_NAME} SPA application (HTTP $HTTP_CODE)"
-        print_error "Response: $BODY"
-        exit 1
-    fi
-}
-# ----------------------------------------------------------------------------
-
-# Look up the default Organization Unit id (image-provided, created by
-# 01-default-resources.sh) - needed as ouId for every application/user below.
-# Allow the browser apps' origins to call ThunderID cross-origin before we create
-# the apps they belong to.
-configure_cors
-echo ""
-
-DEFAULT_OU_ID=$(get_ou_id_by_handle "default")
-if [ -z "$DEFAULT_OU_ID" ]; then
-    print_error "Failed to resolve default organization unit"
-    exit 1
-fi
-print_success "Default OU id: $DEFAULT_OU_ID"
-echo ""
-
-# Look up the Classic theme so the Consent Portal login screen is themed.
-# Non-fatal if not found.
-CLASSIC_THEME_ID=$(get_classic_theme_id)
-if [ -n "$CLASSIC_THEME_ID" ]; then
-    print_success "Classic theme id: $CLASSIC_THEME_ID"
-else
-    print_warning "Classic theme not found; Consent Portal app will be created without a theme"
-fi
-echo ""
-
-# Step 2: Create the API Gateway M2M application.
-# The apisix routes below validate bearer tokens by verifying their RS256 signature
-# locally against ThunderID's signing public key (extracted below). The app's
-# client_id only satisfies the openid-connect plugin's config schema (client_id is
-# a required field); its secret is not used, since local verification needs no
-# token exchange or introspection call.
-print_info "Creating M2M application for API Gateway..."
+# ThunderID apps (API Gateway, Passport Application, Consent Portal), the CORS
+# allowed-origins config, and the mock citizen user are all provisioned
+# declaratively now - config/thunderid/bootstrap/03..07-*.yaml, imported
+# automatically by thunderid-setup's in-process bootstrap (see
+# docker-compose.yml). Nothing left for this script to POST; the client
+# ids/secrets below just have to agree with those files (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"
-GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-$(openssl rand -hex 16)}"
-create_m2m_application "NDX_API_GATEWAY" "M2M client used by APISIX to validate bearer tokens" \
-    "$GATEWAY_CLIENT_ID" "$GATEWAY_CLIENT_SECRET" "$DEFAULT_OU_ID"
+GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-1234}"
 CLIENT_ID="$GATEWAY_CLIENT_ID"
-print_info "API Gateway Client ID: $CLIENT_ID"
-echo ""
 
+M2M_CLIENT_ID="passport-app"
+M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-1234}"
+
+PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
+
+print_success "ThunderID apps, CORS, and the mock user were already provisioned by thunderid-setup"
+print_info "API Gateway Client ID: $CLIENT_ID"
+print_info "Passport Application Client ID: $M2M_CLIENT_ID"
+print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
+echo ""
 # Extract ThunderID's RS256 signing public key so APISIX can verify token
 # signatures locally (public_key mode). We validate locally rather than via JWKS
 # because the issuer is https://localhost:8090: the JWKS URL advertised in the
@@ -473,6 +266,7 @@ print_info "Exposing OE Endpoints Publicly with OpenID Connect Authentication"
 OE_ROUTE_CODE=$(jq -n \
   --arg pk "$IDP_PUBLIC_KEY" \
   --arg client_id "$CLIENT_ID" \
+  --arg client_secret "$GATEWAY_CLIENT_SECRET" \
   --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
   '{
@@ -482,6 +276,7 @@ OE_ROUTE_CODE=$(jq -n \
     plugins: {
       "openid-connect": {
         client_id: $client_id,
+        client_secret: $client_secret,
         discovery: $discovery,
         bearer_only: true,
         public_key: $pk,
@@ -508,6 +303,7 @@ print_info "Exposing Required Consent Engine Endpoints Publicly with OpenID Conn
 CE_ROUTE_CODE=$(jq -n \
   --arg pk "$IDP_PUBLIC_KEY" \
   --arg client_id "$CLIENT_ID" \
+  --arg client_secret "$GATEWAY_CLIENT_SECRET" \
   --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
   --arg cors_origin "${CONSENT_PORTAL_URL:-http://localhost:5173}" \
@@ -518,6 +314,7 @@ CE_ROUTE_CODE=$(jq -n \
     plugins: {
       "openid-connect": {
         client_id: $client_id,
+        client_secret: $client_secret,
         discovery: $discovery,
         bearer_only: true,
         public_key: $pk,
@@ -578,17 +375,6 @@ print_success "Audit Service public routes registered successfully"
 echo ""
 
 
-# Create M2M Application (Passport Application) using the Management API.
-# ThunderID lets us choose the clientId/clientSecret directly, so there's no
-# separate "retrieve generated credentials" round trip needed.
-print_info "Creating M2M application (Passport Application)..."
-M2M_CLIENT_ID="passport-application"
-M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-$(openssl rand -hex 16)}"
-create_m2m_application "Passport Application" "M2M client used by the Online Passport App" \
-    "$M2M_CLIENT_ID" "$M2M_CLIENT_SECRET" "$DEFAULT_OU_ID"
-
-print_success "M2M application (Passport Application) created successfully!"
-echo ""
 print_success "=========================================="
 print_success "M2M Application Credentials"
 print_success "=========================================="
@@ -597,62 +383,8 @@ print_info "Client ID:        $M2M_CLIENT_ID"
 print_info "Client Secret:    $M2M_CLIENT_SECRET"
 print_success "=========================================="
 echo ""
-
-# Define the Consent Portal client ID (unchanged from the WSO2 setup)
-PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
-
-print_info "Creating SPA application for Consent Portal..."
-create_spa_application "NDX_CONSENT_PORTAL" "Single-Page Application for NDX Consent Portal" \
-    "$PORTAL_CLIENT_ID" "http://localhost:5173" "$DEFAULT_OU_ID"
-
-print_success "Consent Portal application created successfully!"
-print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
-
-echo ""
-
-
-echo ""
-print_success "=========================================="
-print_success "Application Setup Completed!"
-print_success "=========================================="
-echo ""
-print_info "API Gateway Client ID: $CLIENT_ID"
-print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
-echo ""
-
-# Create a mock user via ThunderID's User Management API (no SCIM2 equivalent
-# exists in ThunderID - this is its own custom user API, scoped by OU + user
-# type; "Person" is the image-provided default user type).
-print_info "Creating mock user..."
-USER_RESPONSE=$(thunderid_api_call POST "/users" "$(cat <<EOF
-{
-  "type": "Person",
-  "ouId": "${DEFAULT_OU_ID}",
-  "attributes": {
-    "username": "nayana",
-    "password": "${MOCK_USER_PASSWORD:-Abc12#45}",
-    "email": "nayana@opensource.lk",
-    "given_name": "Nayana",
-    "family_name": "Samaranayake"
-  }
-}
-EOF
-)")
-USER_HTTP_CODE="${USER_RESPONSE: -3}"
-USER_BODY="${USER_RESPONSE%???}"
-
-if [ "$USER_HTTP_CODE" = "201" ] || [ "$USER_HTTP_CODE" = "200" ]; then
-    SCIM_USER_ID=$(extract_first_id "$USER_BODY")
-    print_success "Mock user created successfully!"
-    print_info "User ID: $SCIM_USER_ID"
-    print_info "Username: nayana"
-    print_info "Password: ${MOCK_USER_PASSWORD:-Abc12#45}"
-elif [ "$USER_HTTP_CODE" = "409" ]; then
-    print_warning "Mock user 'nayana' already exists, skipping"
-else
-    print_warning "Failed to create mock user (HTTP $USER_HTTP_CODE)"
-    print_info "Response: $USER_BODY"
-fi
+print_info "Mock user - Username: nayana"
+print_info "Mock user - Password: ${MOCK_USER_PASSWORD:-Abc12#45}"
 echo ""
 
 # Start member services

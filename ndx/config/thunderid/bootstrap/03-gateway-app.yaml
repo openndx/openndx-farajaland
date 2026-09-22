@@ -1,0 +1,33 @@
+# ============================================================================
+# Declarative bootstrap resource: the APISIX API Gateway's M2M application.
+#
+# APISIX's openid-connect plugin (init.sh route registration) validates bearer
+# tokens locally against ThunderID's signing public key (public_key mode) - it
+# never calls back to ThunderID with this client's credentials. clientId only
+# satisfies the plugin's config schema (both client_id and client_secret are
+# required fields on current apisix builds); the secret itself is unused.
+#
+# {{ .GATEWAY_CLIENT_SECRET }} is resolved from the container environment at
+# bootstrap time; the thunderid-setup service sets it (see ndx/.env).
+#
+resource_type: application
+id: 01900000-0000-7000-8000-0000000000c1
+name: NDX_API_GATEWAY
+description: M2M client used by APISIX to validate bearer tokens
+type: m2m
+ouId: 01900000-0000-7000-8000-000000000001
+allowedUserTypes: []
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: ndx-api-gateway
+      clientSecret: "{{ .GATEWAY_CLIENT_SECRET }}"
+      grantTypes:
+        - client_credentials
+      tokenEndpointAuthMethod: client_secret_basic
+      pkceRequired: false
+      publicClient: false
+      token:
+        accessToken:
+          clientConfig:
+            validityPeriod: 3600
