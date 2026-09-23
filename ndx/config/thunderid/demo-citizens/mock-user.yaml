@@ -1,0 +1,35 @@
+# ============================================================================
+# Demo citizen (data-owner) account: LOCAL-DEV ONLY.
+#
+# Deliberately NOT under ../bootstrap/ - that directory is ThunderID's own
+# infrastructure bootstrap (the API gateway's client, the consent portal's
+# client, CORS). A citizen is not exchange infrastructure: in a real
+# deployment, citizens arrive by self-registering through the consent portal
+# (the Person user type here has allowSelfRegistration: true) or some other
+# enrollment process - never as part of the exchange's own startup.
+#
+# Same treatment as config/thunderid/data-consumers/passport-application.yaml:
+# init.sh imports this at runtime via ThunderID's authenticated /import API,
+# once the server is already up, rather than at boot. This is purely a
+# convenience for trying out the consent/passport flows without registering
+# a user through the UI first - it is not a stand-in for the real citizen
+# enrollment flow. A follow-up PR will document that.
+#
+# Matches the DRP/RGD mock data's "nayana@opensource.lk" record
+# (members/drp/data-sources/drp-api/mock_data.json).
+#
+# {{ .MOCK_USER_PASSWORD }} is resolved from the environment by init.sh
+# before this file is POSTed to /import (see there); it's not ThunderID's
+# own bootstrap substitution, since /import doesn't apply that.
+#
+resource_type: user
+id: 01900000-0000-7000-8000-0000000000d1
+type: Person
+ouHandle: default
+attributes:
+  username: nayana
+  email: nayana@opensource.lk
+  given_name: Nayana
+  family_name: Samaranayake
+credentials:
+  password: "{{ .MOCK_USER_PASSWORD }}"

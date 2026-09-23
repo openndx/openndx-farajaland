@@ -121,17 +121,18 @@ CLEAN_START=false ./init.sh
    - Orchestration Engine
    - Consent Engine
    - Policy Decision Point
-   - ThunderID (with the API Gateway/Consent Portal M2M+SPA clients, CORS,
-     and a mock citizen user all provisioned automatically as part of its
-     own startup - see `ndx/config/thunderid/bootstrap/`)
+   - ThunderID (with the API Gateway/Consent Portal M2M+SPA clients and CORS
+     all provisioned automatically as part of its own startup - see
+     `ndx/config/thunderid/bootstrap/`)
 3. ✅ Waits for services to be healthy
-4. ✅ Extracts ThunderID's signing key and registers API routes in APISIX
-5. ✅ Registers the Passport Application as a data-consumer app - unlike the
-   infra apps above, this happens as an explicit runtime step (minting an
-   admin token and calling ThunderID's `/import` API), since onboarding a
-   data-consumer application is meant to happen after the exchange is
-   already up, not as part of its own boot sequence (see
-   `ndx/config/thunderid/data-consumers/`)
+4. ✅ Registers the Passport Application (a data-consumer app) and a demo
+   citizen user - unlike the infra apps above, these happen as explicit
+   runtime steps (minting an admin token and calling ThunderID's `/import`
+   API), since onboarding a data-consumer application or a citizen is meant
+   to happen after the exchange is already up, not as part of its own boot
+   sequence (see `ndx/config/thunderid/data-consumers/` and
+   `ndx/config/thunderid/demo-citizens/`)
+5. ✅ Extracts ThunderID's signing key and registers API routes in APISIX
 6. ✅ Starts member data source services:
    - RGD API (Python/FastAPI)
    - DRP API Adapter (Ballerina)

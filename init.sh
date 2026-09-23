@@ -262,25 +262,49 @@ if [ "$ADMIN_TOKEN" = "null" ] || [ -z "$ADMIN_TOKEN" ]; then
     exit 1
 fi
 
-PASSPORT_APP_YAML="$NDX_DIR/config/thunderid/data-consumers/passport-application.yaml"
-PASSPORT_APP_RESOLVED=$(sed "s/{{ .PASSPORT_CLIENT_SECRET }}/${M2M_CLIENT_SECRET}/" "$PASSPORT_APP_YAML")
-IMPORT_PAYLOAD=$(jq -n --arg content "$PASSPORT_APP_RESOLVED" \
-  '{content: $content, options: {upsert: true, continueOnError: false, target: "runtime"}}')
-IMPORT_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/import \
-  --insecure \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data "$IMPORT_PAYLOAD")
-IMPORT_FAILED=$(echo "$IMPORT_RESPONSE" | jq -r '.summary.failed // "unknown"')
+# Resolves a {{ .PLACEHOLDER }} template var by literal substitution (this
+# file is imported directly via /import, which - unlike thunderid-setup's own
+# bootstrap - does not apply SubstituteEnvironmentVariables), then POSTs the
+# result to ThunderID's /import API using the admin token minted above.
+thunderid_import_resource() {
+    local LABEL="$1" YAML_FILE="$2" PLACEHOLDER="$3" VALUE="$4"
+    local RESOLVED IMPORT_PAYLOAD IMPORT_RESPONSE IMPORT_FAILED
 
-if [ "$IMPORT_FAILED" = "0" ]; then
-    print_success "Passport Application registered successfully"
-else
-    print_error "Failed to register the Passport Application (HTTP response below)"
-    print_error "Response: $IMPORT_RESPONSE"
-    exit 1
-fi
+    RESOLVED=$(sed "s/${PLACEHOLDER}/${VALUE}/" "$YAML_FILE")
+    IMPORT_PAYLOAD=$(jq -n --arg content "$RESOLVED" \
+      '{content: $content, options: {upsert: true, continueOnError: false, target: "runtime"}}')
+    IMPORT_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/import \
+      --insecure \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data "$IMPORT_PAYLOAD")
+    IMPORT_FAILED=$(echo "$IMPORT_RESPONSE" | jq -r '.summary.failed // "unknown"')
+
+    if [ "$IMPORT_FAILED" = "0" ]; then
+        print_success "${LABEL} registered successfully"
+    else
+        print_error "Failed to register ${LABEL} (HTTP response below)"
+        print_error "Response: $IMPORT_RESPONSE"
+        exit 1
+    fi
+}
+
+thunderid_import_resource "Passport Application" \
+    "$NDX_DIR/config/thunderid/data-consumers/passport-application.yaml" \
+    "{{ .PASSPORT_CLIENT_SECRET }}" "$M2M_CLIENT_SECRET"
 print_info "Passport Application Client ID: $M2M_CLIENT_ID"
+echo ""
+
+# The demo citizen user gets the same treatment as the passport app above:
+# not exchange infrastructure, so registered explicitly at runtime rather
+# than as part of ThunderID's own boot sequence (see
+# config/thunderid/demo-citizens/mock-user.yaml).
+print_info "Registering the demo citizen user..."
+MOCK_USER_PASSWORD="${MOCK_USER_PASSWORD:-Abc12#45}"
+thunderid_import_resource "Demo citizen user (nayana)" \
+    "$NDX_DIR/config/thunderid/demo-citizens/mock-user.yaml" \
+    "{{ .MOCK_USER_PASSWORD }}" "$MOCK_USER_PASSWORD"
+print_info "Demo citizen username: nayana"
 echo ""
 # Extract ThunderID's RS256 signing public key so APISIX can verify token
 # signatures locally (public_key mode). We validate locally rather than via JWKS
