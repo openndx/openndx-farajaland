@@ -47,8 +47,13 @@ services:
   # /opt/thunderid/bootstrap: the image's 01-default-resources.yaml (default OU,
   # Person user type, Administrator role, Console app) plus our mounted files -
   # the ADMIN_CLI M2M client (used by init.sh to mint management tokens), the
-  # APISIX gateway / passport-app M2M clients, the consent-portal SPA client, CORS,
-  # and a mock citizen user. Import is upsert-safe, so re-running is a no-op.
+  # APISIX gateway M2M client, the consent-portal SPA client, CORS, and a mock
+  # citizen user. Import is upsert-safe, so re-running is a no-op.
+  #
+  # The passport app's M2M client is NOT here - it's a data-consumer
+  # application, not exchange infrastructure, so init.sh registers it
+  # separately at runtime via ThunderID's /import API once the server is up
+  # (see config/thunderid/data-consumers/passport-application.yaml).
   thunderid-setup:
     image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
     container_name: thunderid-setup-${ENVIRONMENT:-local}
@@ -62,7 +67,6 @@ services:
       - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
       - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-1234}
       - GATEWAY_CLIENT_SECRET=${GATEWAY_CLIENT_SECRET:-1234}
-      - PASSPORT_CLIENT_SECRET=${PASSPORT_CLIENT_SECRET:-1234}
       - MOCK_USER_PASSWORD=${MOCK_USER_PASSWORD:-Abc12#45}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
@@ -84,7 +88,6 @@ services:
       - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
       - ./config/thunderid/bootstrap/02-admin-cli.yaml:/opt/thunderid/bootstrap/02-admin-cli.yaml
       - ./config/thunderid/bootstrap/03-gateway-app.yaml:/opt/thunderid/bootstrap/03-gateway-app.yaml
-      - ./config/thunderid/bootstrap/04-passport-application.yaml:/opt/thunderid/bootstrap/04-passport-application.yaml
       - ./config/thunderid/bootstrap/05-consent-portal.yaml:/opt/thunderid/bootstrap/05-consent-portal.yaml
       - ./config/thunderid/bootstrap/06-cors.yaml:/opt/thunderid/bootstrap/06-cors.yaml
       - ./config/thunderid/bootstrap/07-mock-user.yaml:/opt/thunderid/bootstrap/07-mock-user.yaml

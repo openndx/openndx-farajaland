@@ -121,21 +121,24 @@ CLEAN_START=false ./init.sh
    - Orchestration Engine
    - Consent Engine
    - Policy Decision Point
-   - FUDI/ThunderID
+   - ThunderID (with the API Gateway/Consent Portal M2M+SPA clients, CORS,
+     and a mock citizen user all provisioned automatically as part of its
+     own startup - see `ndx/config/thunderid/bootstrap/`)
 3. ✅ Waits for services to be healthy
-4. ✅ Mints a system-scoped management token from the ADMIN_CLI M2M client
-5. ✅ Creates API Gateway M2M application
-6. ✅ Registers API routes in APISIX Gateway
-7. ✅ Creates Consent Portal SPA application
-8. ✅ Creates Passport Application (M2M) for user access
-9. ✅ Creates a mock user automatically (username: nayana)
-10. ✅ Starts member data source services:
-    - RGD API (Python/FastAPI)
-    - DRP API Adapter (Ballerina)
-11. ✅ Starts client applications:
-    - Passport Application Frontend (http://localhost:3000)
-    - Consent Portal Frontend (http://localhost:5173)
-12. ✅ **Displays Passport Application credentials and next steps**
+4. ✅ Extracts ThunderID's signing key and registers API routes in APISIX
+5. ✅ Registers the Passport Application as a data-consumer app - unlike the
+   infra apps above, this happens as an explicit runtime step (minting an
+   admin token and calling ThunderID's `/import` API), since onboarding a
+   data-consumer application is meant to happen after the exchange is
+   already up, not as part of its own boot sequence (see
+   `ndx/config/thunderid/data-consumers/`)
+6. ✅ Starts member data source services:
+   - RGD API (Python/FastAPI)
+   - DRP API Adapter (Ballerina)
+7. ✅ Starts client applications:
+   - Passport Application Frontend (http://localhost:3000)
+   - Consent Portal Frontend (http://localhost:5173)
+8. ✅ **Displays Passport Application credentials and next steps**
 
 **The entire setup process is now fully automated - no manual steps required!**
 

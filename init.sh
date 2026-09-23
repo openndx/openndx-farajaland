@@ -209,25 +209,78 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# ThunderID apps (API Gateway, Passport Application, Consent Portal), the CORS
-# allowed-origins config, and the mock citizen user are all provisioned
-# declaratively now - config/thunderid/bootstrap/03..07-*.yaml, imported
-# automatically by thunderid-setup's in-process bootstrap (see
-# docker-compose.yml). Nothing left for this script to POST; the client
-# ids/secrets below just have to agree with those files (see ndx/.env).
+# The API Gateway client, the Consent Portal client, CORS, and the mock
+# citizen user are all infrastructure - provisioned declaratively at startup
+# by thunderid-setup's in-process bootstrap (config/thunderid/bootstrap/
+# 02..07-*.yaml, see docker-compose.yml). Nothing left for this script to POST
+# for those; the client ids/secrets below just have to agree with those files
+# (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"
 GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-1234}"
 CLIENT_ID="$GATEWAY_CLIENT_ID"
 
+PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
+
+print_success "ThunderID infra apps, CORS, and the mock user were already provisioned by thunderid-setup"
+print_info "API Gateway Client ID: $CLIENT_ID"
+print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
+echo ""
+
+# The passport app, by contrast, is a data-consumer application, not exchange
+# infrastructure - in a real deployment it would be onboarded at runtime,
+# after the exchange is already up, through whatever registration flow the
+# exchange operator exposes. We register it the same way here: mint a
+# system-scoped management token from admin-cli (created by
+# config/thunderid/bootstrap/02-admin-cli.yaml), then POST its declarative
+# resource file to ThunderID's authenticated /import API - the same
+# import mechanism thunderid-setup itself uses internally, just invoked
+# explicitly and after the fact rather than at boot. This is a convenience so
+# trying the passport app doesn't require hand-crafting a REST payload; it is
+# not a stand-in for the real (manual, admin-console/API) onboarding flow.
+print_info "Registering the Passport Application data-consumer app..."
 M2M_CLIENT_ID="passport-app"
 M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-1234}"
 
-PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
+ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
+# The image-shipped "System" resource server's identifier (see
+# config/thunderid/bootstrap/02-admin-cli.yaml's resourceServerId) - 1.0.1
+# requires client_credentials token requests to name a target resource
+# explicitly via `resource`, unlike 0.48.
+SYSTEM_RESOURCE_SERVER="https://${THUNDERID_URL}/mcp"
+ADMIN_TOKEN_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/oauth2/token \
+  --insecure \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -u "ADMIN_CLI:$ADMIN_CLI_SECRET" \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "scope=system" \
+  --data-urlencode "resource=${SYSTEM_RESOURCE_SERVER}")
+ADMIN_TOKEN=$(echo "$ADMIN_TOKEN_RESPONSE" | jq -r '.access_token')
 
-print_success "ThunderID apps, CORS, and the mock user were already provisioned by thunderid-setup"
-print_info "API Gateway Client ID: $CLIENT_ID"
+if [ "$ADMIN_TOKEN" = "null" ] || [ -z "$ADMIN_TOKEN" ]; then
+    print_error "Failed to mint admin-cli management token"
+    print_error "Response was: $ADMIN_TOKEN_RESPONSE"
+    exit 1
+fi
+
+PASSPORT_APP_YAML="$NDX_DIR/config/thunderid/data-consumers/passport-application.yaml"
+PASSPORT_APP_RESOLVED=$(sed "s/{{ .PASSPORT_CLIENT_SECRET }}/${M2M_CLIENT_SECRET}/" "$PASSPORT_APP_YAML")
+IMPORT_PAYLOAD=$(jq -n --arg content "$PASSPORT_APP_RESOLVED" \
+  '{content: $content, options: {upsert: true, continueOnError: false, target: "runtime"}}')
+IMPORT_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/import \
+  --insecure \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data "$IMPORT_PAYLOAD")
+IMPORT_FAILED=$(echo "$IMPORT_RESPONSE" | jq -r '.summary.failed // "unknown"')
+
+if [ "$IMPORT_FAILED" = "0" ]; then
+    print_success "Passport Application registered successfully"
+else
+    print_error "Failed to register the Passport Application (HTTP response below)"
+    print_error "Response: $IMPORT_RESPONSE"
+    exit 1
+fi
 print_info "Passport Application Client ID: $M2M_CLIENT_ID"
-print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
 # Extract ThunderID's RS256 signing public key so APISIX can verify token
 # signatures locally (public_key mode). We validate locally rather than via JWKS
