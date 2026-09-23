@@ -235,12 +235,28 @@ services:
     image: ghcr.io/openndx/orchestration-engine:0.3.0
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
+    depends_on:
+      - audit-service
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-local}
       - PORT=4000
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-text}
       - CONFIG_PATH=${CONFIG_PATH:-./config.json}
+      # OE's audit client (github.com/LSFLK/argus/pkg/audit) authenticates
+      # with argus using this key - must match audit-service's own
+      # ARGUS_API_KEY below, or audit writes are rejected (argus is
+      # fail-closed by default). Read directly via os.Getenv, no
+      # fl-config.json fallback, so it has to be set here.
+      #
+      # KNOWN GAP: this openndx-core 0.3.0 build of OE is compiled against
+      # argus commit c28bd76815b0 (June 2026), whose client sends the key via
+      # `Authorization: Bearer`. audit-service's pinned commit below is later
+      # and only accepts `X-API-Key` (no Bearer fallback) - so audit writes
+      # currently fail with 401 regardless of this value. Non-fatal (audit is
+      # async/best-effort), but no audit trail is actually recorded until OE
+      # is rebuilt against a client that sends X-API-Key.
+      - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
     volumes:
       - ${OE_CONFIG_PATH}:/app/config.json:ro
       - ${OE_SCHEMA_PATH}:/app/schema.graphql:ro
@@ -254,8 +270,13 @@ services:
     networks:
       - exchange-network
 
+  # LSFLK/argus - a generic, reusable audit-logging microservice. This
+  # replaces openndx-core's own (now-retired) audit-service; orchestration-
+  # engine's audit client already targets argus directly (it imports
+  # github.com/LSFLK/argus/pkg/audit), so this is the intended pairing for
+  # 0.3.0, not a substitution.
   audit-service:
-    image: ghcr.io/opendif/opendif-core/audit-service:0.1.0
+    image: ghcr.io/lsflk/argus:${AUDIT_SERVICE_IMAGE_TAG:-1103abbd087e5cc9d7e17c42bfb2395a6c9dcc57}
     platform: linux/amd64
     container_name: audit-${ENVIRONMENT:-local}
     depends_on:
@@ -269,8 +290,22 @@ services:
       - DB_USERNAME=${DB_USER:-exchange}
       - DB_PASSWORD=${DB_PASSWORD:-exchange}
       - DB_NAME=audit_db
+      # Fail-closed API key auth - must match orchestration-engine's
+      # ARGUS_API_KEY above.
+      - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
     volumes:
-      - ./config/audit/enums.yml:/app/config/enums.yaml:ro
+      # argus reads its enum config from configs/enums.yaml (relative to its
+      # /app workdir) by default - a different path/plural than the old
+      # opendif-core audit-service used. The YAML shape itself (enums:
+      # eventTypes/eventActions/actorTypes/targetTypes) already matches
+      # argus's own config.AuditEnums, unchanged.
+      - ./config/audit/enums.yml:/app/configs/enums.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - exchange-network
     restart: unless-stopped
