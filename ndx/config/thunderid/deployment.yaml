@@ -84,7 +84,7 @@ jwt:
 
 # NOTE: the static `cors:` block was removed well before 1.0.1 - the config schema
 # doesn't accept it (CORS is dynamic / configured via the server-config bootstrap
-# resource - see config/thunderid/bootstrap/06-cors.yaml). Leaving it here makes the
+# resource - see config/thunderid/bootstrap/05-cors.yaml). Leaving it here makes the
 # server fail to start.
 
 passkey:

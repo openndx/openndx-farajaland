@@ -88,8 +88,8 @@ services:
       - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
       - ./config/thunderid/bootstrap/02-admin-cli.yaml:/opt/thunderid/bootstrap/02-admin-cli.yaml
       - ./config/thunderid/bootstrap/03-gateway-app.yaml:/opt/thunderid/bootstrap/03-gateway-app.yaml
-      - ./config/thunderid/bootstrap/05-consent-portal.yaml:/opt/thunderid/bootstrap/05-consent-portal.yaml
-      - ./config/thunderid/bootstrap/06-cors.yaml:/opt/thunderid/bootstrap/06-cors.yaml
+      - ./config/thunderid/bootstrap/04-consent-portal.yaml:/opt/thunderid/bootstrap/04-consent-portal.yaml
+      - ./config/thunderid/bootstrap/05-cors.yaml:/opt/thunderid/bootstrap/05-cors.yaml
     restart: "no"
     networks:
       - exchange-network
