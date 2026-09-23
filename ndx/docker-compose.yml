@@ -25,29 +25,38 @@ services:
     volumes:
       - ./config/apisix/conf.yaml:/usr/local/apisix/conf/config.yaml
 
-  # Stage A: seed the ThunderID image's bundled SQLite DB files into named
-  # volumes so thunderid-setup/thunderid see a writable copy.
+  # Stage A: seed the ThunderID image's bundled SQLite DB files into a named
+  # volume so thunderid-setup/thunderid see a writable copy.
   thunderid-db-init:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
     container_name: thunderid-db-init-${ENVIRONMENT:-local}
-    # -n (no-clobber): seed only if empty. Recreating this container (e.g. after
+    # Seed only when the volume is empty. Recreating this container (e.g. after
     # an unrelated env var change) must never overwrite an already-populated
     # volume - a plain `cp -r` would silently wipe existing ThunderID data.
-    command: sh -c "cp -rn /opt/thunderid/database/* /data/ && (cp -rn /opt/thunderid/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
+    command: sh -c "[ -f /data/configdb.db ] || cp -r /opt/thunderid/database/* /data/"
     volumes:
       - thunderid-db:/data
-      - consent-db:/consent-data
     restart: "no"
     networks:
       - exchange-network
 
-  # Stage B: one-shot bootstrap. setup.sh runs ThunderID's in-process orchestrator
-  # (0.48), which imports every resource-definition file under /opt/thunderid/bootstrap:
-  # the image's 01-default-resources.yaml (default OU, Person user type, Administrator
-  # role, Console app) plus our mounted 02-admin-cli.yaml (creates the ADMIN_CLI M2M
-  # client + system role used by init.sh to mint management tokens).
+  # Stage B: one-shot bootstrap. setup.sh runs ThunderID's in-process orchestrator,
+  # which (1) generates the server TLS/JWT-signing/AES key material and the Direct
+  # Auth Secret into the thunderid-certs/thunderid-secrets volumes if not already
+  # present, then (2) imports every resource-definition file under
+  # /opt/thunderid/bootstrap: the image's 01-default-resources.yaml (default OU,
+  # Person user type, Administrator role, Console app) plus our mounted files -
+  # the ADMIN_CLI M2M client (used by init.sh to mint management tokens), the
+  # APISIX gateway M2M client, the consent-portal SPA client, and CORS. Import
+  # is upsert-safe, so re-running is a no-op.
+  #
+  # Neither the passport app's M2M client nor the demo citizen user are here -
+  # they're a data-consumer application and a citizen, not exchange
+  # infrastructure, so init.sh registers both separately at runtime via
+  # ThunderID's /import API once the server is up (see
+  # config/thunderid/data-consumers/ and config/thunderid/demo-citizens/).
   thunderid-setup:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
     container_name: thunderid-setup-${ENVIRONMENT:-local}
     command: ./setup.sh
     depends_on:
@@ -58,6 +67,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
       - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
       - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-1234}
+      - GATEWAY_CLIENT_SECRET=${GATEWAY_CLIENT_SECRET:-1234}
+      - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
       - PORT=${IDP_PORT:-8090}
       - HOSTNAME=0.0.0.0
@@ -70,14 +81,21 @@ services:
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
     volumes:
       - thunderid-db:/opt/thunderid/database
-      - consent-db:/opt/thunderid/consent/repository/database
+      # Per-deployment key material and the Direct Auth Secret, generated here and
+      # shared (read-only) with the thunderid service below.
+      - thunderid-certs:/opt/thunderid/config/certs
+      - thunderid-secrets:/opt/thunderid/config/secrets
+      - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
       - ./config/thunderid/bootstrap/02-admin-cli.yaml:/opt/thunderid/bootstrap/02-admin-cli.yaml
+      - ./config/thunderid/bootstrap/03-gateway-app.yaml:/opt/thunderid/bootstrap/03-gateway-app.yaml
+      - ./config/thunderid/bootstrap/04-consent-portal.yaml:/opt/thunderid/bootstrap/04-consent-portal.yaml
+      - ./config/thunderid/bootstrap/05-cors.yaml:/opt/thunderid/bootstrap/05-cors.yaml
     restart: "no"
     networks:
       - exchange-network
 
   thunderid:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-0.48.0}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
     container_name: thunderid-${ENVIRONMENT:-local}
     depends_on:
       thunderid-setup:
@@ -85,17 +103,9 @@ services:
     ports:
       - "${IDP_PORT:-8090}:${IDP_PORT:-8090}"
     environment:
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-1234}
-      - ADMIN_CLI_SECRET=${ADMIN_CLI_SECRET:-1234}
-      - DIRECT_AUTH_SECRET=${DIRECT_AUTH_SECRET:-1234}
       - PUBLIC_URL=${IDP_BASE_URL:-https://localhost:8090}
       - PORT=${IDP_PORT:-8090}
       - HOSTNAME=0.0.0.0
-      # CORS is no longer configured via deployment.yaml/env in 0.48. The Consent
-      # Portal origin is set at provisioning time by init.sh via PUT
-      # /server-config/cors (the server's dynamic CORS server-config section). The
-      # Console is served from the issuer, so its token calls are same-origin.
       - SMTP_HOST=${SMTP_HOST:-localhost}
       - SMTP_PORT=${SMTP_PORT:-1025}
       - SMTP_USERNAME=${SMTP_USERNAME:-dummy}
@@ -105,10 +115,11 @@ services:
       - SMTP_ENABLE_AUTHENTICATION=${SMTP_ENABLE_AUTHENTICATION:-false}
     volumes:
       - thunderid-db:/opt/thunderid/database
-      - consent-db:/opt/thunderid/consent/repository/database
+      - thunderid-certs:/opt/thunderid/config/certs:ro
+      - thunderid-secrets:/opt/thunderid/config/secrets:ro
       - ./config/thunderid/deployment.yaml:/opt/thunderid/deployment.yaml
     healthcheck:
-      test: ["CMD-SHELL", "curl -k -s -o /dev/null https://localhost:${IDP_PORT:-8090}/ || exit 1"]
+      test: ["CMD-SHELL", "curl -k -s -o /dev/null https://localhost:${IDP_PORT:-8090}/health/readiness || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -120,7 +131,7 @@ services:
   policy-decision-point:
     depends_on:
       - postgres
-    image: ghcr.io/opendif/opendif-core/policy-decision-point:0.1.0
+    image: ghcr.io/openndx/policy-decision-point:0.3.0
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -129,15 +140,14 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-text}
-      - JWT_SECRET=${JWT_SECRET:-local-secret-key}
-      - CORS=${CORS:-true}
-      - RATE_LIMIT=${RATE_LIMIT:-1000}
-      # Database configuration
-      - CHOREO_OPENDIF_DATABASE_HOSTNAME=${PDP_DB_HOST:-localhost}
-      - CHOREO_OPENDIF_DATABASE_PORT=${PDP_DB_PORT:-5432}
-      - CHOREO_OPENDIF_DATABASE_USERNAME=${PDP_DB_USERNAME:-postgres}
-      - CHOREO_OPENDIF_DATABASE_PASSWORD=${PDP_DB_PASSWORD:-password}
-      - CHOREO_OPENDIF_DATABASE_DATABASENAME=${PDP_DB_NAME:-testdb}
+      # Database configuration. 0.3.0's PDP reads DB_* (the old
+      # CHOREO_OPENDIF_DATABASE_* names and JWT_SECRET/CORS/RATE_LIMIT are no
+      # longer read by the service and were silently ignored).
+      - DB_HOST=postgres
+      - DB_PORT=${PDP_DB_PORT:-5432}
+      - DB_USERNAME=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
+      - DB_NAME=${PDP_DB_NAME:-testdb}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - RUN_MIGRATION=${RUN_MIGRATION:-false}
     healthcheck:
@@ -154,10 +164,7 @@ services:
     depends_on:
       - postgres
       - thunderid
-    # Image with the generic (IdP-agnostic) JWT verifier — validates issuer +
-    # audience + client_id, no organization claim (OpenDIF/opendif-core#450),
-    # and supports IDP_JWKS_INSECURE_SKIP_VERIFY (#452).
-    image: ghcr.io/opendif/opendif-core/consent-engine:${CE_IMAGE_TAG:-sha-79a8b79fd9e5c30f676a2ae950eeaec3d19eabd9}
+    image: ghcr.io/openndx/consent-engine:0.3.0
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -166,24 +173,15 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-text}
-      - JWT_SECRET=${JWT_SECRET:-local-secret-key}
-      - CORS=${CORS:-true}
-      - RATE_LIMIT=${RATE_LIMIT:-1000}
-      # Database configuration (local image reads DB_* names)
-      - DB_HOST=${CE_DB_HOST:-localhost}
+      # Database configuration. 0.3.0's consent-engine doesn't read
+      # JWT_SECRET/CORS/RATE_LIMIT or the DB pool/timeout/retry tuning vars below
+      # (no such settings exist in its config any more), so they've been dropped.
+      - DB_HOST=postgres
       - DB_PORT=${CE_DB_PORT:-5432}
-      - DB_USERNAME=${CE_DB_USERNAME:-postgres}
-      - DB_PASSWORD=${CE_DB_PASSWORD:-1234}
+      - DB_USERNAME=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
       - DB_NAME=${CE_DB_NAME:-consent_engine}
       - DB_SSLMODE=${DB_SSLMODE:-require}
-      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
-      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
-      - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME:-1h}
-      - DB_CONN_MAX_IDLE_TIME=${DB_CONN_MAX_IDLE_TIME:-30m}
-      - DB_QUERY_TIMEOUT=${DB_QUERY_TIMEOUT:-30s}
-      - DB_CONNECT_TIMEOUT=${DB_CONNECT_TIMEOUT:-10s}
-      - DB_RETRY_ATTEMPTS=${DB_RETRY_ATTEMPTS:-3}
-      - DB_RETRY_DELAY=${DB_RETRY_DELAY:-1s}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       # Generic IdP config (verifier validates issuer + audience + client_id, no org).
       - IDP_ISSUER=${IDP_ISSUER:-https://localhost:8090}
@@ -193,6 +191,13 @@ services:
       # ThunderID serves a self-signed dev cert; skip TLS verification on the
       # JWKS fetch (matches apisix ssl_verify:false / DIE rejectUnauthorized:false).
       - IDP_JWKS_INSECURE_SKIP_VERIFY=${IDP_JWKS_INSECURE_SKIP_VERIFY:-true}
+      # The canonical data-owner UID matched against consent.owner_id. OE sets
+      # owner_id straight from the federated query's "nic" argument value, and
+      # the DRP/RGD mock data use an email address as that value (see
+      # config/thunderid/demo-citizens/mock-user.yaml) - so the claim consent
+      # ownership is checked against must be "email", not the default "sub"
+      # (ThunderID's auto-generated user UUID, which would never match).
+      - IDP_SUBJECT_CLAIM=${IDP_SUBJECT_CLAIM:-email}
       - CORS_ALLOWED_ORIGINS=${CONSENT_PORTAL_URL:-http://localhost:5173}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
@@ -208,32 +213,50 @@ services:
     depends_on:
       - postgres
       - thunderid
-    image: ghcr.io/opendif/opendif-core/consent-portal:0.1.0
+    image: ghcr.io/openndx/consent-portal:0.3.0
     ports:
       - "${PORT_CP:-5173}:80"
     platform: linux/amd64
     environment:
-      - VITE_API_URL=http://localhost:9081/api/v1
-      - VITE_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
-      # VITE_BASE_URL is the IdP the browser is redirected to for login, so it must
+      # 0.3.0's consent-portal no longer bakes VITE_* vars in at build time - the
+      # image's entrypoint now writes these into a runtime-loaded config.js instead.
+      - CONSENT_ENGINE_URL=http://localhost:9081/api/v1
+      - IDP_CLIENT_ID=${CONSENT_PORTAL_CLIENT_ID:-consent-portal}
+      # IDP_BASE_URL is the IdP the browser is redirected to for login, so it must
       # be reachable from the browser. For this local stack IDP_BASE_URL is
       # https://localhost:8090 (see ndx/.env) - the browser reaches it directly and
       # ThunderID's dev cert is CN=localhost, so no /etc/hosts entry is required.
-      - VITE_BASE_URL=${IDP_BASE_URL:-https://localhost:8090}
-      - VITE_SCOPE=openid profile email
-      - VITE_SIGN_IN_REDIRECT_URL=http://localhost:5173
-      - VITE_SIGN_OUT_REDIRECT_URL=http://localhost:5173
+      - IDP_BASE_URL=${IDP_BASE_URL:-https://localhost:8090}
+      - IDP_SCOPE=openid profile email
+      - IDP_SIGN_IN_REDIRECT_URL=http://localhost:5173
+      - IDP_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/opendif/opendif-core/orchestration-engine:0.1.0
+    image: ghcr.io/openndx/orchestration-engine:0.3.0
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
+    depends_on:
+      - audit-service
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-local}
       - PORT=4000
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-text}
       - CONFIG_PATH=${CONFIG_PATH:-./config.json}
+      # OE's audit client (github.com/LSFLK/argus/pkg/audit) authenticates
+      # with argus using this key - must match audit-service's own
+      # ARGUS_API_KEY below, or audit writes are rejected (argus is
+      # fail-closed by default). Read directly via os.Getenv, no
+      # fl-config.json fallback, so it has to be set here.
+      #
+      # KNOWN GAP: this openndx-core 0.3.0 build of OE is compiled against
+      # argus commit c28bd76815b0 (June 2026), whose client sends the key via
+      # `Authorization: Bearer`. audit-service's pinned commit below is later
+      # and only accepts `X-API-Key` (no Bearer fallback) - so audit writes
+      # currently fail with 401 regardless of this value. Non-fatal (audit is
+      # async/best-effort), but no audit trail is actually recorded until OE
+      # is rebuilt against a client that sends X-API-Key.
+      - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
     volumes:
       - ${OE_CONFIG_PATH}:/app/config.json:ro
       - ${OE_SCHEMA_PATH}:/app/schema.graphql:ro
@@ -247,8 +270,13 @@ services:
     networks:
       - exchange-network
 
+  # LSFLK/argus - a generic, reusable audit-logging microservice. This
+  # replaces openndx-core's own (now-retired) audit-service; orchestration-
+  # engine's audit client already targets argus directly (it imports
+  # github.com/LSFLK/argus/pkg/audit), so this is the intended pairing for
+  # 0.3.0, not a substitution.
   audit-service:
-    image: ghcr.io/opendif/opendif-core/audit-service:0.1.0
+    image: ghcr.io/lsflk/argus:${AUDIT_SERVICE_IMAGE_TAG:-1103abbd087e5cc9d7e17c42bfb2395a6c9dcc57}
     platform: linux/amd64
     container_name: audit-${ENVIRONMENT:-local}
     depends_on:
@@ -257,13 +285,27 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-local}
       - PORT=3001
       - DB_TYPE=${AUDIT_DB_TYPE:-postgres}
-      - DB_HOST=${AUDIT_DB_HOST:-localhost}
+      - DB_HOST=postgres
       - DB_PORT=${AUDIT_DB_PORT:-5432}
-      - DB_USERNAME=${AUDIT_DB_USERNAME:-exchange}
-      - DB_PASSWORD=${AUDIT_DB_PASSWORD:-exchange}
+      - DB_USERNAME=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
       - DB_NAME=audit_db
+      # Fail-closed API key auth - must match orchestration-engine's
+      # ARGUS_API_KEY above.
+      - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
     volumes:
-      - ./config/audit/enums.yml:/app/config/enums.yaml:ro
+      # argus reads its enum config from configs/enums.yaml (relative to its
+      # /app workdir) by default - a different path/plural than the old
+      # opendif-core audit-service used. The YAML shape itself (enums:
+      # eventTypes/eventActions/actorTypes/targetTypes) already matches
+      # argus's own config.AuditEnums, unchanged.
+      - ./config/audit/enums.yml:/app/configs/enums.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - exchange-network
     restart: unless-stopped
@@ -291,4 +333,5 @@ networks:
 volumes:
   pg_data:
   thunderid-db:
-  consent-db:
+  thunderid-certs:
+  thunderid-secrets:

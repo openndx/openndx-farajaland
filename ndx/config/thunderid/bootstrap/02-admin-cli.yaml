@@ -22,10 +22,11 @@
 # {{ .ADMIN_CLI_SECRET }} is resolved from the container environment at bootstrap
 # time (SubstituteEnvironmentVariables); the thunderid-setup service sets it.
 #
-# resource_type: application
+resource_type: application
 id: 01990048-0000-7000-8000-0000000000a1
 name: admin-cli
 description: Admin CLI machine client for management API access
+type: m2m
 ouId: 01900000-0000-7000-8000-000000000001
 allowedUserTypes: []
 inboundAuthConfig:
@@ -44,7 +45,7 @@ inboundAuthConfig:
           clientConfig:
             validityPeriod: 3600
 ---
-# resource_type: role
+resource_type: role
 id: 01990048-0000-7000-8000-0000000000a2
 name: AdminCLISystem
 description: Grants the admin-cli app the system scope on the System resource server

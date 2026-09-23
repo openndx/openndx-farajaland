@@ -1,0 +1,48 @@
+# ============================================================================
+# Data-consumer application registration: the Online Passport App's M2M client.
+#
+# Deliberately NOT under ../bootstrap/ - that directory is ThunderID's own
+# infrastructure bootstrap (imported automatically, at startup, by
+# thunderid-setup: the API gateway's client, the consent portal's client,
+# CORS, the mock citizen user). A data-consumer application is a different
+# kind of thing: in a real deployment, onboarding one happens at RUNTIME,
+# after the exchange is already up, through whatever registration flow the
+# exchange operator exposes - not declared as part of the exchange's own boot
+# sequence.
+#
+# This file is imported the same way, but as an explicit, separate step:
+# init.sh POSTs it to ThunderID's authenticated /import API (the same
+# declarative-resource format thunderid-setup uses internally) once the
+# server is already running, using the ADMIN_CLI management token. This is a
+# convenience so trying out the passport app doesn't require hand-crafting a
+# REST payload - it is NOT a stand-in for how a real application would
+# actually be onboarded. A follow-up PR will document that manual flow
+# (registering an application through ThunderID's admin API/console).
+#
+# Used by members/run-member-services.sh (the `die` service) to call the
+# federated GraphQL API via the APISIX public route as a data-consuming
+# application. {{ .PASSPORT_CLIENT_SECRET }} is resolved from the environment
+# by init.sh before this file is POSTed to /import (see there); it's not
+# ThunderID's own bootstrap substitution, since /import doesn't apply that.
+#
+resource_type: application
+id: 01900000-0000-7000-8000-0000000000c2
+name: Passport Application
+description: M2M client used by the Online Passport App
+type: m2m
+ouId: 01900000-0000-7000-8000-000000000001
+allowedUserTypes: []
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: passport-app
+      clientSecret: "{{ .PASSPORT_CLIENT_SECRET }}"
+      grantTypes:
+        - client_credentials
+      tokenEndpointAuthMethod: client_secret_basic
+      pkceRequired: false
+      publicClient: false
+      token:
+        accessToken:
+          clientConfig:
+            validityPeriod: 3600

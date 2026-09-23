@@ -1,0 +1,16 @@
+# ============================================================================
+# Declarative bootstrap resource: server-wide CORS allowed origins.
+#
+# ThunderID removed the static deployment.yaml `cors:` block; CORS is a
+# DB-backed server-config section instead, read by the running server's
+# dynamic CORS matcher. Only the Consent Portal calls /oauth2/token
+# cross-origin - the Console is served from the issuer itself (same-origin).
+#
+# {{ .CONSENT_PORTAL_URL }} is resolved from the container environment at
+# bootstrap time (see ndx/.env).
+#
+resource_type: server_config
+name: cors
+value:
+  allowedOrigins:
+    - "{{ .CONSENT_PORTAL_URL }}"

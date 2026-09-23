@@ -1,0 +1,50 @@
+# ============================================================================
+# Declarative bootstrap resource: the Consent Portal's browser (SPA) application.
+#
+# clientId (CONSENT_PORTAL_APP) matches CONSENT_PORTAL_CLIENT_ID in ndx/.env,
+# which consent-engine reads as IDP_CLIENT_ID/IDP_AUDIENCE to validate portal
+# tokens - see docker-compose.yml's consent-engine service.
+#
+# {{ .CONSENT_PORTAL_URL }} is resolved from the container environment at
+# bootstrap time (see ndx/.env).
+#
+# authFlowId/registrationFlowId/signOutFlowId/recoveryFlowId reference
+# ThunderID's own image-shipped default flows (01-default-resources.yaml) -
+# same well-known ids across installations, not something this repo defines.
+#
+resource_type: application
+id: 01900000-0000-7000-8000-0000000000a0
+name: NDX_CONSENT_PORTAL
+description: React Consent Portal - citizen-facing consent approval UI
+type: browser
+ouId: 01900000-0000-7000-8000-000000000001
+authFlowId: 01900000-0000-7000-8000-000000000061
+registrationFlowId: 01900000-0000-7000-8000-000000000064
+isRegistrationFlowEnabled: false
+signOutFlowId: 01900000-0000-7000-8000-00000000006a
+recoveryFlowId: 01900000-0000-7000-8000-000000000067
+isRecoveryFlowEnabled: true
+allowedUserTypes:
+  - Person
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: CONSENT_PORTAL_APP
+      redirectUris:
+        - "{{ .CONSENT_PORTAL_URL }}"
+      grantTypes:
+        - authorization_code
+        - refresh_token
+      responseTypes:
+        - code
+      tokenEndpointAuthMethod: none
+      pkceRequired: true
+      publicClient: true
+      token:
+        accessToken:
+          userConfig:
+            validityPeriod: 3600
+            attributes:
+              - email
+        idToken:
+          validityPeriod: 3600
