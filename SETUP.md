@@ -2,6 +2,11 @@
 
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 
+The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
+to OpenNDX **v0.6.0**. ThunderID remains at **1.0.1**, as in the upstream release.
+The passport app is built from this checkout at startup so it requests the OAuth
+audience required by the upgraded Orchestration Engine.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -64,15 +69,18 @@ cd opendif-farajaland
 
 **No `/etc/hosts` changes are required.**
 
-ThunderID's OIDC issuer is `https://localhost:8090`. Your browser reaches it
+ThunderID's OIDC issuer is `http://localhost:8090`. Your browser reaches it
 directly, and the containers reach ThunderID over the Docker network — so a single
 issuer works everywhere with no host-file edits and no host-IP detection.
 
-> **Accept the self-signed certificate once.** ThunderID serves a self-signed dev
-> certificate (issued for `localhost`). After `init.sh` reports the services are
-> healthy, open `https://localhost:8090` in your browser once and accept the
-> certificate warning — otherwise the Consent Portal's redirect to ThunderID's
-> login page will silently fail with a TLS error.
+ThunderID runs over HTTP with `server.http_only: true` in
+`ndx/config/thunderid/deployment.yaml`. Browser login, discovery, token requests
+and container-side JWKS fetches all use HTTP; no certificate exception is needed.
+
+After switching an existing stack from HTTPS, restart it through `init.sh` so
+the containers and APISIX routes pick up the HTTP URLs. Use a fresh browser
+session to discard login state for the previous issuer. Changing only the
+protocol does not require deleting database volumes.
 
 ### 3. Make the Initialization Script Executable
 
@@ -170,7 +178,7 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-https://localhost:8090/oauth2/token
+http://localhost:8090/oauth2/token
 
 Public API Gateway:
 http://localhost:9081/public/*
@@ -211,46 +219,153 @@ All services are running. Monitoring...
 
 4. **Keep Running**: The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
 
-## Testing the GraphQL API
+## End-to-End Upgrade Test
 
-**Note:** In Farajaland, the system uses **email addresses as the National Identity Card (NIC)**. This is a design choice for this reference implementation.
+### Start the stack
 
-### Basic Query
-
-Try a simple GraphQL query to fetch person information:
+From the repository root, start Docker Desktop, then run:
 
 ```bash
-curl -X POST http://localhost:9081/public/graphql \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "{ personInfo(nic: \"nayana@opensource.lk\") { fullName dateOfBirth address } }"
-  }'
+CLEAN_START=false ./init.sh
 ```
 
-**Expected Response:**
+Keep this terminal running. `CLEAN_START=false` preserves data when you stop the
+script. If you have volumes from an older installation, follow
+[Upgrading an Existing Environment](#upgrading-an-existing-environment) first;
+its reset command deletes local database data. Use a private browser window for
+this test to avoid stale login sessions.
 
-```json
-{
-  "data": {
-    "personInfo": {
-      "fullName": "Nayana Opensource",
-      "dateOfBirth": "1990-01-15",
-      "address": "123 Main Street, Farajaland"
-    }
-  }
-}
+In another terminal, from the repository root:
+
+```bash
+docker compose -f ndx/docker-compose.yml ps -a
+curl -sS http://localhost:3000/api/health
 ```
 
-### Query with Consent Flow
+Expected: the OpenNDX services are running and healthy, the two ThunderID init/setup
+containers have exited with code 0, and the passport health endpoint returns
+`"status":"ok"`. The published RGD v0.1.0 image may report unhealthy even while
+serving GraphQL requests; the data checks below verify it separately.
 
-For queries requiring consent (authenticated endpoints), you'll need to:
+Open `http://localhost:8090` to check that ThunderID is reachable.
+Allow popups from `http://localhost:3000` so the passport app can open consent requests.
 
-1. Obtain an access token from FUDI using the Passport Application credentials
-2. Include the token in the request
-3. Grant consent if prompted
-4. Retry the request
+### Test the browser flow
 
-See the [API Documentation](README.md#api-documentation) section in the main README for detailed examples.
+1. Open `http://localhost:3000/login` directly. This is the demo applicant login:
+   keep the prefilled SLUDI value and OTP (`232323`), then click **Continue** and
+   **Complete Login**. This simulated OTP flow selects the demo record identified
+   by `nayana@opensource.lk`; it does not send an SMS.
+2. On the application form, click **Load My Details**. With no approved consent,
+   a Consent Portal popup should open. Personal details must remain unavailable
+   until you approve.
+3. Sign in to ThunderID from the Consent Portal using **nayana** / **Abc12#45**
+   (unless you changed `MOCK_USER_PASSWORD`). This is separate from the mock
+   applicant login above. Review the requested fields and click **Approve**.
+4. The passport app should retry automatically and fill the form. Check surname
+   **Samaranayake**, other names **Nayana**, address
+   **105 Bauddhaloka Mawatha, Colombo 00400**, profession **Software Engineer**,
+   birth certificate **BR2025001**, and birthplace **Colombo General Hospital**.
+   These combine DRP and RGD records. The fixtures contain different
+   names for the same owner: DRP's full name is Nayana Samaranayake and RGD's name
+   is Nuwan Fernando.
+5. Open `http://localhost:5173/consents` in another tab, select the approved
+   passport consent, and revoke it. Return to the passport app, reload the page,
+   and click **Load My Details** again. It must request consent again, rather
+   than fetching fresh data under the revoked grant. Previously rendered data
+   is not erased by revocation.
+6. Deny the new pending request. The app must not receive fresh provider data.
+   Reload the passport page before starting a later request, which you can
+   approve to restore access.
+
+This verifies the exchange integration through the browser. Passport submission
+and payment screens are demo UI flows, not additional OpenNDX service checks.
+
+### Test the exchange through the passport API
+
+This request uses the same fields as **Load My Details**, so switching between
+browser and API tests does not change the consent's requested field set. The
+passport backend obtains the OAuth token and calls APISIX, OE, PDP, CE and the
+providers for you.
+
+```bash
+NDX_TEST_REQUEST='{
+  "query": "query GetPersonInfo($nic: String!) { personInfo(nic: $nic) { fullName name otherNames address profession dateOfBirth sex birthInfo { birthRegistrationNumber birthPlace district } } }",
+  "variables": {"nic": "nayana@opensource.lk"}
+}'
+
+curl -sS http://localhost:3000/api/graphql \
+  -H 'Content-Type: application/json' \
+  --data "$NDX_TEST_REQUEST" | jq .
+```
+
+Before approval, expect `errors[0].extensions.code` to be `CE_NOT_APPROVED`, with
+an `extensions.consentPortalUrl`. Open that URL in the browser and approve as
+`nayana`, then rerun the same command. Expect populated `data.personInfo` and no
+GraphQL errors. After revocation, rerun it and expect `CE_NOT_APPROVED` again.
+A GraphQL HTTP status of 200 alone does not mean success: inspect `errors`.
+
+### Check v0.6.0 authentication
+
+The public GraphQL endpoint requires a bearer token. A request without one must
+return **401**:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  http://localhost:9081/public/graphql \
+  -H 'Content-Type: application/json' \
+  --data "$NDX_TEST_REQUEST"
+```
+
+To call the exchange directly with the default demo client, request OE's resource
+and scope explicitly:
+
+```bash
+NDX_TEST_TOKEN=$(curl -sS http://localhost:8090/oauth2/token \
+  -u "passport-app:${PASSPORT_CLIENT_SECRET:-1234}" \
+  --data-urlencode 'grant_type=client_credentials' \
+  --data-urlencode 'resource=http://api.openndx.local' \
+  --data-urlencode 'scope=getdata' | jq -er '.access_token')
+
+curl -sS http://localhost:9081/public/graphql \
+  -H "Authorization: Bearer $NDX_TEST_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data "$NDX_TEST_REQUEST" | jq .
+```
+
+Expected: the same consent/data behavior as the passport proxy. Use your
+configured client secret if you changed it.
+
+### Confirm consent and audit persistence
+
+From the repository root:
+
+```bash
+docker compose -f ndx/docker-compose.yml exec -T postgres \
+  psql -U exchange -d testdb2 -c \
+  "SELECT owner_id, app_id, status, updated_at FROM consent_records ORDER BY updated_at DESC;"
+
+docker compose -f ndx/docker-compose.yml exec -T postgres \
+  psql -U exchange -d audit_db -c \
+  "SELECT count(*) AS audit_events FROM audit_logs;"
+```
+
+Expected: consent records for owner `nayana@opensource.lk` and app `passport-app`,
+with statuses matching your actions, and an audit count greater than zero that
+increases as you make requests. Audit writes are asynchronous; allow a few seconds.
+These commands use the checkout's default database user and database names.
+
+If a step fails, inspect the relevant logs:
+
+```bash
+docker compose -f ndx/docker-compose.yml logs --tail=100 \
+  orchestration-engine consent-engine policy-decision-point thunderid audit-service
+docker logs --tail=100 online-passport-app
+```
+
+For browser-only failures, check Developer Tools for popup blocking, stale HTTPS
+login sessions, and failing requests. A successful API test with a failed browser flow
+means the browser login/popup integration still needs investigation.
 
 ## Manual Setup (Alternative)
 
@@ -282,17 +397,22 @@ you can create the required applications with curl instead of a browser console:
 # port - no /etc/hosts entry needed.
 
 # Mint a management token from the ADMIN_CLI client created during bootstrap
-TOKEN=$(curl -k -s -u "ADMIN_CLI:${ADMIN_CLI_SECRET:-1234}" \
+TOKEN=$(curl -sS -u "ADMIN_CLI:${ADMIN_CLI_SECRET:-1234}" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" -d "scope=system" \
-  https://localhost:8090/oauth2/token | jq -r .access_token)
+  --data-urlencode "resource=https://localhost:8090/mcp" \
+  http://localhost:8090/oauth2/token | jq -r .access_token)
 
-# Use $TOKEN as a Bearer token against https://localhost:8090/applications
+# Use $TOKEN as a Bearer token against http://localhost:8090/applications
 # (POST) to create an M2M application for the API Gateway and an SPA
 # application for the Consent Portal. Note down the client IDs and secrets.
 ```
 
 Or simply run `./init.sh`, which performs all of this automatically.
+
+The System resource's `https://localhost:8090/mcp` identifier is fixed in
+ThunderID 1.0.1, including in HTTP mode. It is an OAuth audience string; the
+management token and application API requests still connect over HTTP.
 
 ### Step 3: Register API Gateway Routes
 
@@ -313,13 +433,13 @@ jq -n --arg pk "$PUBLIC_KEY" '{
     plugins: {
       "openid-connect": {
         client_id: "ndx-api-gateway",
-        discovery: "https://localhost:8090/.well-known/openid-configuration",
+        client_secret: "1234",
+        discovery: "http://thunderid:8090/.well-known/openid-configuration",
         bearer_only: true,
         public_key: $pk,
         token_signing_alg_values_expected: "RS256",
-        claim_validator: { issuer: { valid_issuers: ["https://localhost:8090"] } },
-        set_userinfo_header: true,
-        ssl_verify: false
+        claim_validator: { issuer: { valid_issuers: ["http://localhost:8090"] } },
+        set_userinfo_header: true
       }
     },
     id: "oe-endpoint"
@@ -330,8 +450,8 @@ jq -n --arg pk "$PUBLIC_KEY" '{
 ```
 
 > **Why local (public_key) validation instead of JWKS?** With the issuer set to
-> `https://localhost:8090`, the JWKS URL advertised in the discovery document is
-> `https://localhost:8090/oauth2/jwks`, which the APISIX container cannot reach
+> `http://localhost:8090`, the JWKS URL advertised in the discovery document is
+> `http://localhost:8090/oauth2/jwks`, which the APISIX container cannot reach
 > (`localhost` there means APISIX itself). Verifying the RS256 signature locally
 > against ThunderID's public key needs no network call to the IdP — the `localhost`
 > issuer is only ever compared as a string (`valid_issuers`), never dereferenced.
@@ -384,30 +504,95 @@ lsof -ti:9081 | xargs kill -9
 
 ### Upgrading an Existing Environment
 
-If you already ran this stack before it moved to openndx-core v0.3.0 / ThunderID
-1.0.1, your persisted `pg_data` and `thunderid-db` volumes still hold the
-previous versions' schema and database files:
+This checkout targets OpenNDX **v0.6.0** (`0.6.0` container tags). It builds on
+these upstream guides:
 
-- **Postgres**: consent-engine v0.3.0 dropped the `owner_email` column, and
-  `ndx/consent_engine_schema.sql` only runs once, when Postgres's data
-  directory is empty - an existing volume keeps the old `NOT NULL owner_email`
-  column, which breaks every consent creation.
-- **ThunderID**: 1.0.1 reads different database file names (`entitydb.db`,
-  `runtime_transient.db`, `runtime_persistent.db`) than 0.48 did
-  (`userdb.db`, `runtimedb.db`, `operationdb.db`) - an existing `thunderid-db`
-  volume seeded by 0.48 won't be recognized by 1.0.1, and any locally
-  registered users/apps in it won't carry over.
+- [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
+- [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
 
-Both are one-time SQLite/Postgres seed files, not migrations this stack runs
-automatically. Since this is a local reference/demo stack with no data worth
-preserving across a version bump, the fix is to wipe the volumes and let them
-reseed from scratch:
+The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
+Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
+The legacy Portal Backend tables in `opendif_schema.sql` are not migrated here.
+If you deploy Portal Backend separately, follow both guides for its organization
+units, `members.ou_id` migration, management client, scopes and YAML configuration.
+
+**Configuration changes in v0.6.0:**
+
+- `ndx/config/openndx/{pdp,ce,oe}.yaml` configure the three Go services.
+  Compose mounts each at `/app/config/config.yaml`. Environment values affect a
+  service only through an explicit `{{env:NAME}}` placeholder in its YAML file.
+  Logging and database settings, TLS options and token verification use these files.
+- `OE_CONFIG_PATH=./config/openndx/oe.yaml` replaces `./fl-config.json` in
+  `ndx/.env`. The old JSON is retained only as a rollback reference; v0.6.0 does
+  not load it. Preserve your v0.5.0 schema and Compose/env files before upgrading.
+- `ndx/schema.graphql` is mounted at `/app/config/schema.graphql`, next to
+  OE's config. `providerKey` and the unused source-argument directive are removed.
+  DMT is still a future provider: its unconfigured vehicle fields and mapping
+  have been removed. The passport query continues to use DRP and RGD.
+- Provider IDs remain **`drp-schema-v1`** and **`abc-212`**, matching the existing
+  database and PDP grants. The renamed IDs in upstream's local sample are not
+  required for this deployment. Both mappings declare `targetArgType: "ID!"`
+  because the provider APIs take `ID!` while the consumer schema takes `String!`.
+- OE explicitly sets `pdp.url` and `consentEngine.url` (ending in
+  `/internal/api/v1`). Keep these keys: an empty PDP URL disables policy and
+  consent checks. Provider secrets now come from `DRP_API_KEY`, `RGD_CLIENT_ID`
+  and `RGD_CLIENT_SECRET` in `ndx/.env`; retain your existing values there.
+  Argus authentication now comes from `audit.apiKey` using `ARGUS_API_KEY`.
+- CE requires the issuer, audience and JWKS URL. Its audience remains
+  `CONSENT_PORTAL_APP`; `idp.subjectClaim` remains `email` because this demo's
+  data-owner identifiers are email addresses. OE's separate audience remains
+  `http://api.openndx.local`. Keep certificate verification enabled.
+- Health probes use `/health`. CE's old `/api/v1/health` and
+  `/internal/api/v1/health` are removed; OE's health body is now
+  `{"service":"orchestration-engine","status":"healthy"}`. Status-code probes
+  continue to work. OE no longer handles CORS: the browser uses the passport
+  backend proxy, which makes the server-side request to OE.
+- These services connect to the existing database without startup migrations.
+  The services wait for PostgreSQL/ThunderID health before starting.
+
+**Changes carried forward from v0.5.0:** consumer tokens request OE's resource
+and `getdata` scope; the passport app is built locally with that token request.
+`init.sh` imports its client and role at runtime. CE routes expose both
+`/api/v1/consents` and `/api/v1/consents/*`, and OE uses a file schema instead of
+its removed `/sdl` API/database. GraphQL responses can contain both `data` and
+`errors`; fields that failed are unavailable, and the app surfaces the error.
+
+**Upgrade without deleting data:** back up PostgreSQL and ThunderID, save your
+old configuration/schema for rollback, and stop any running `init.sh` gracefully
+with its volume cleanup disabled. Its default `CLEAN_START=true` deletes volumes
+on exit; always use `CLEAN_START=false` for a persistent environment. If an old
+`init.sh` is already running with the default, back up before stopping it.
+Then run from the repository root:
 
 ```bash
 cd ndx
-docker compose down -v
+docker compose config --quiet
+docker compose pull policy-decision-point consent-engine orchestration-engine consent-portal
 docker compose up -d
+cd ..
+CLEAN_START=false ./init.sh
 ```
+
+`init.sh` also registers the passport app, demo citizen and gateway routes;
+`docker compose up` alone does not perform those steps. The v0.5.0 to v0.6.0
+upgrade needs no database migration or volume reset. If you use an alternate
+Compose env file, also update its OE path and provider credentials.
+
+Verify `/health` and startup logs, check the unauthenticated request returns
+`401`, and run the passport query above before consent, after approval, and
+after revocation. Confirm an application without a policy grant gets
+`PDP_NOT_ALLOWED`, authorized queries fetch data from both DRP and RGD, and
+Argus records the requests. An HTTP `200` alone does not prove authorization.
+
+To roll back to v0.5.0, restore the saved v0.5.0 Compose/env files, JSON config
+and schema with `providerKey`, then redeploy the v0.5.0 images. Database data
+can stay in place. If upgrading from v0.4.0 with a separate Portal Backend,
+its member migration also requires the database backup for rollback.
+
+For installations older than OpenNDX v0.3.0 / ThunderID 1.0.1, follow the
+intermediate migration steps first: CE removed `owner_email`, and ThunderID
+1.0.1 changed its SQLite database filenames. Those older changes are separate
+from this v0.6.0 configuration update.
 
 ### Service Health Check Failures
 
@@ -554,12 +739,12 @@ If you encounter issues not covered in this guide:
 Key configuration files you may need to modify:
 
 - `ndx/docker-compose.yml` - Infrastructure services configuration
-- `ndx/fl-config.json` - Orchestration Engine data source configuration
+- `ndx/config/openndx/{pdp,ce,oe}.yaml` - Backend service configuration
 - `ndx/schema.graphql` - Unified GraphQL schema
 - `ndx/.env` - Environment variables for NDX services
 - `ndx/config/apisix/conf.yaml` - API Gateway configuration
 - `ndx/config/thunderid/deployment.yaml` - FUDI/ThunderID configuration
-- `ndx/config/thunderid/bootstrap/02-admin-cli.sh` - ThunderID bootstrap script (creates the ADMIN_CLI management client)
+- `ndx/config/thunderid/bootstrap/02-admin-cli.yaml` - ThunderID ADMIN_CLI management client
 
 ## Advanced Configuration
 
@@ -577,10 +762,12 @@ docker-compose up -d
 Create or modify `ndx/.env`:
 
 ```bash
-OE_CONFIG_PATH=./fl-config.json
+OE_CONFIG_PATH=./config/openndx/oe.yaml
 OE_SCHEMA_PATH=./schema.graphql
 ENVIRONMENT=local
-DATABASE_URL=postgresql://exchange:exchange@postgres:5432/exchange_service
+DB_USER=exchange
+DB_PASSWORD=<your-password>
+DB_SSLMODE=disable
 ```
 
 ### Production Deployment

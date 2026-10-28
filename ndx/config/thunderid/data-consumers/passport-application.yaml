@@ -4,7 +4,7 @@
 # Deliberately NOT under ../bootstrap/ - that directory is ThunderID's own
 # infrastructure bootstrap (imported automatically, at startup, by
 # thunderid-setup: the API gateway's client, the consent portal's client,
-# CORS, the mock citizen user). A data-consumer application is a different
+# CORS, the OE resource server). A data-consumer application is a different
 # kind of thing: in a real deployment, onboarding one happens at RUNTIME,
 # after the exchange is already up, through whatever registration flow the
 # exchange operator exposes - not declared as part of the exchange's own boot
@@ -46,3 +46,18 @@ inboundAuthConfig:
         accessToken:
           clientConfig:
             validityPeriod: 3600
+---
+# Imported at runtime with the application. The resource server itself is
+# exchange infrastructure, declared in bootstrap/06-oe-resource.yaml.
+resource_type: role
+id: 01900000-0000-7000-8000-0000000000c3
+name: PassportDataConsumer
+description: Grants the Passport Application the OE getdata scope
+ouHandle: default
+permissions:
+  - resourceServerId: 01900000-0000-7000-8000-000000000090
+    permissions:
+      - getdata
+assignments:
+  - id: 01900000-0000-7000-8000-0000000000c2
+    type: app

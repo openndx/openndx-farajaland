@@ -16,8 +16,10 @@
 # the `system` scope + audience, which init.sh uses to mint a management token
 # (init.sh runs on the host and reaches ThunderID at the published localhost:8090
 # port, so no /etc/hosts entry is needed):
-#   curl -k -u ADMIN_CLI:$ADMIN_CLI_SECRET \
-#     -d 'grant_type=client_credentials&scope=system' https://localhost:8090/oauth2/token
+#   curl -u ADMIN_CLI:$ADMIN_CLI_SECRET \
+#     -d 'grant_type=client_credentials&scope=system' \
+#     --data-urlencode 'resource=https://localhost:8090/mcp' http://localhost:8090/oauth2/token
+# The System resource identifier is fixed even when the server uses HTTP.
 #
 # {{ .ADMIN_CLI_SECRET }} is resolved from the container environment at bootstrap
 # time (SubstituteEnvironmentVariables); the thunderid-setup service sets it.

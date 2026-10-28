@@ -1,0 +1,13 @@
+# API audience and scope requested by data consumers calling the OE.
+# This identifier is also OE_IDP_AUDIENCE in ndx/.env and TOKEN_RESOURCE in
+# the passport app. It is an identifier, so no DNS or /etc/hosts entry is needed.
+resource_type: resource_server
+id: 01900000-0000-7000-8000-000000000090
+name: Orchestration Engine Resource Server
+description: OE resource server
+identifier: http://api.openndx.local
+ouHandle: default
+resources:
+  - name: Consumer
+    handle: getdata
+    description: Data Consumer

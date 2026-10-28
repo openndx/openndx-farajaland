@@ -1,0 +1,31 @@
+# OpenNDX 0.6.0: values are read through these explicit placeholders.
+server:
+  port: 8081
+  timeout: 10s
+
+environment: "{{env:ENVIRONMENT}}"
+logging:
+  level: "{{env:LOG_LEVEL}}"
+  format: "{{env:LOG_FORMAT}}"
+
+consentPortalURL: "{{env:CONSENT_PORTAL_URL}}"
+# The portal origin is automatically allowed by CE; no wildcard CORS is needed.
+
+idp:
+  jwksURL: "{{env:IDP_JWKS_URL}}"
+  issuer: "{{env:IDP_ISSUER}}"
+  audience: "{{env:IDP_AUDIENCE}}"
+  insecureSkipTLSVerify: "{{env:IDP_JWKS_INSECURE_SKIP_VERIFY}}"
+  # OE uses the nic argument as owner_id; demo nic values are email addresses.
+  subjectClaim: "{{env:IDP_SUBJECT_CLAIM}}"
+
+database:
+  driver: postgres
+  postgres:
+    host: postgres
+    port: "{{env:DB_PORT}}"
+    user: "{{env:DB_USER}}"
+    password: "{{env:DB_PASSWORD}}"
+    name: "{{env:DB_NAME}}"
+    sslMode: "{{env:DB_SSLMODE}}"
+  idleTimeout: 30m

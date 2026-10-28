@@ -1,6 +1,5 @@
 {
-  "environment": "development",
-  "trustUpstream": true,
+  "schemaPath": "schema.graphql",
   "foundationalIdArgName": "nic",
   "ceUrl": "http://consent-engine:8081/internal/api/v1",
   "pdpUrl": "http://policy-decision-point:8082",

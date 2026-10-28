@@ -128,11 +128,10 @@ echo ""
 export IDP_PORT="${IDP_PORT:-8090}"
 THUNDERID_URL=localhost:${IDP_PORT}
 
-# The OIDC issuer is https://localhost:8090 (set in ndx/.env). The browser reaches
-# it directly and ThunderID's dev cert is CN=localhost, so the cert matches, and
-# consent-engine validates the token `iss` against this string. JWKS is fetched
-# server-side by consent-engine over Docker DNS (thunderid:8090).
-ISSUER_URL="https://localhost:${IDP_PORT}"
+# The OIDC issuer is http://localhost:8090 (set in ndx/.env). The browser reaches
+# it directly; consent-engine and OE validate the token `iss` against this
+# string. JWKS is fetched server-side over Docker DNS (thunderid:8090).
+ISSUER_URL="http://localhost:${IDP_PORT}"
 
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker-compose)..."
@@ -184,8 +183,8 @@ print_info "Checking ThunderID health..."
 for i in $(seq 1 30); do
     # ThunderID's own convention: any HTTP response (including 401) means the
     # server is up - don't exit on curl failure, just retry.
-    if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 --insecure \
-        https://"$THUNDERID_URL"/ 2>/dev/null); then
+    if STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 --max-time 10 \
+        http://"$THUNDERID_URL"/ 2>/dev/null); then
 
         if [ -n "$STATUS_CODE" ] && [ "$STATUS_CODE" != "000" ]; then
             print_success "ThunderID is ready (HTTP $STATUS_CODE)"
@@ -209,10 +208,10 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# The API Gateway client, the Consent Portal client, CORS, and the mock
-# citizen user are all infrastructure - provisioned declaratively at startup
+# The API Gateway client, the Consent Portal client, CORS, and the OE
+# resource server are infrastructure - provisioned declaratively at startup
 # by thunderid-setup's in-process bootstrap (config/thunderid/bootstrap/
-# 02..07-*.yaml, see docker-compose.yml). Nothing left for this script to POST
+# 02..06-*.yaml, see docker-compose.yml). Nothing left for this script to POST
 # for those; the client ids/secrets below just have to agree with those files
 # (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"
@@ -221,7 +220,7 @@ CLIENT_ID="$GATEWAY_CLIENT_ID"
 
 PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
 
-print_success "ThunderID infra apps, CORS, and the mock user were already provisioned by thunderid-setup"
+print_success "ThunderID infra apps, CORS, and the OE resource server were already provisioned by thunderid-setup"
 print_info "API Gateway Client ID: $CLIENT_ID"
 print_info "Consent Portal Client ID: $PORTAL_CLIENT_ID"
 echo ""
@@ -245,10 +244,11 @@ ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
 # The image-shipped "System" resource server's identifier (see
 # config/thunderid/bootstrap/02-admin-cli.yaml's resourceServerId) - 1.0.1
 # requires client_credentials token requests to name a target resource
-# explicitly via `resource`, unlike 0.48.
-SYSTEM_RESOURCE_SERVER="https://${THUNDERID_URL}/mcp"
-ADMIN_TOKEN_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/oauth2/token \
-  --insecure \
+# explicitly via `resource`, unlike 0.48. This built-in resource's identifier
+# is fixed at https://localhost:8090/mcp even when ThunderID serves HTTP;
+# it is an OAuth audience string, not a URL this script connects to.
+SYSTEM_RESOURCE_SERVER="https://localhost:8090/mcp"
+ADMIN_TOKEN_RESPONSE=$(curl --silent -X POST http://"$THUNDERID_URL"/oauth2/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -u "ADMIN_CLI:$ADMIN_CLI_SECRET" \
   --data-urlencode "grant_type=client_credentials" \
@@ -273,8 +273,7 @@ thunderid_import_resource() {
     RESOLVED=$(sed "s/${PLACEHOLDER}/${VALUE}/" "$YAML_FILE")
     IMPORT_PAYLOAD=$(jq -n --arg content "$RESOLVED" \
       '{content: $content, options: {upsert: true, continueOnError: false, target: "runtime"}}')
-    IMPORT_RESPONSE=$(curl --silent -X POST https://"$THUNDERID_URL"/import \
-      --insecure \
+    IMPORT_RESPONSE=$(curl --silent -X POST http://"$THUNDERID_URL"/import \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -H "Content-Type: application/json" \
       --data "$IMPORT_PAYLOAD")
@@ -308,8 +307,8 @@ print_info "Demo citizen username: nayana"
 echo ""
 # Extract ThunderID's RS256 signing public key so APISIX can verify token
 # signatures locally (public_key mode). We validate locally rather than via JWKS
-# because the issuer is https://localhost:8090: the JWKS URL advertised in the
-# discovery document would be https://localhost:8090/oauth2/jwks, which the APISIX
+# because the issuer is http://localhost:8090: the JWKS URL advertised in the
+# discovery document would be http://localhost:8090/oauth2/jwks, which the APISIX
 # container cannot reach (there, localhost means APISIX itself). Local verification
 # needs no network call to the IdP, so the issuer host is only ever compared as a
 # string (claim_validator.issuer.valid_issuers), never dereferenced.
@@ -344,7 +343,7 @@ OE_ROUTE_CODE=$(jq -n \
   --arg pk "$IDP_PUBLIC_KEY" \
   --arg client_id "$CLIENT_ID" \
   --arg client_secret "$GATEWAY_CLIENT_SECRET" \
-  --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
+  --arg discovery "http://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
   '{
     uri: "/public/*",
@@ -359,8 +358,7 @@ OE_ROUTE_CODE=$(jq -n \
         public_key: $pk,
         token_signing_alg_values_expected: "RS256",
         claim_validator: { issuer: { valid_issuers: [$issuer] } },
-        set_userinfo_header: true,
-        ssl_verify: false
+        set_userinfo_header: true
       }
     },
     id: "oe-endpoint"
@@ -381,11 +379,11 @@ CE_ROUTE_CODE=$(jq -n \
   --arg pk "$IDP_PUBLIC_KEY" \
   --arg client_id "$CLIENT_ID" \
   --arg client_secret "$GATEWAY_CLIENT_SECRET" \
-  --arg discovery "https://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
+  --arg discovery "http://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
   --arg cors_origin "${CONSENT_PORTAL_URL:-http://localhost:5173}" \
   '{
-    uri: "/api/v1/consents/*",
+    uris: ["/api/v1/consents", "/api/v1/consents/*"],
     methods: ["GET", "PUT", "OPTIONS"],
     upstream: { type: "roundrobin", nodes: { "consent-engine:8081": 1 } },
     plugins: {
@@ -398,7 +396,6 @@ CE_ROUTE_CODE=$(jq -n \
         token_signing_alg_values_expected: "RS256",
         claim_validator: { issuer: { valid_issuers: [$issuer] } },
         set_userinfo_header: true,
-        ssl_verify: false,
         access_token_in_authorization_header: true
       },
       "cors": {

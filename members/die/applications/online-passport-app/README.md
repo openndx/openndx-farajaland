@@ -135,11 +135,13 @@ VITE_ASGARDEO_SCOPES=openid profile
 PORT=3000
 ASGARDEO_BASE_URL=https://api.asgardeo.io/t/lankasoftwarefoundation
 ASGARDEO_CLIENT_ID=Bt2BvJVTeJXSU5KAngNVe_mHnM0a
-TOKEN_URL=https://api.asgardeo.io/t/lankasoftwarefoundation/oauth2/token
-CLIENT_ID=th4QLB_Af1fWgKo7j9KYdbe9Pika
-CLIENT_SECRET=tb9xv2lsu2s3EoX1B3ktxe9JPEr1YUQcdI8SoLx8BL8a
+TOKEN_URL=http://localhost:8090/oauth2/token
+CLIENT_ID=passport-app
+CLIENT_SECRET=1234
+TOKEN_RESOURCE=http://api.openndx.local
+TOKEN_SCOPE=getdata
 ASGARDEO_SCOPES=openid profile
-GRAPHQL_API_URL=https://41200aa1-4106-4e6c-babf-311dce37c04a-prod.e1-us-east-azure.choreoapis.dev/opendif-ndx/orchestration-engine/v7
+NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
 ```
 
 ## Application Flow

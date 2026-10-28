@@ -1,9 +1,12 @@
 node_modules
+**/node_modules
 npm-debug.log
 .env
+**/.env
 .env.local
 .env.*.local
 dist
+**/dist
 build
 .git
 .gitignore

@@ -1,6 +1,5 @@
 import axios from 'axios';
 import * as dotenv from 'dotenv';
-import * as https from "node:https";
 
 dotenv.config();
 
@@ -16,12 +15,16 @@ class TokenManager {
   private readonly tokenUrl: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
+  private readonly tokenResource: string;
+  private readonly tokenScope: string;
   private readonly refreshBuffer = 30000; // 30 seconds before expiry
 
   constructor() {
     this.tokenUrl = process.env.TOKEN_URL || '';
     this.clientId = process.env.CLIENT_ID || '';
     this.clientSecret = process.env.CLIENT_SECRET || '';
+    this.tokenResource = process.env.TOKEN_RESOURCE || 'http://api.openndx.local';
+    this.tokenScope = process.env.TOKEN_SCOPE || 'getdata';
   }
 
   async getToken(): Promise<string> {
@@ -36,19 +39,18 @@ class TokenManager {
     try {
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
 
-      const httpsAgent = new https.Agent({
-        rejectUnauthorized: false, // 👈 trust self-signed certs
-      });
-
       const response = await axios.post<TokenResponse>(
         this.tokenUrl,
-        'grant_type=client_credentials',
+        new URLSearchParams({
+          grant_type: 'client_credentials',
+          resource: this.tokenResource,
+          scope: this.tokenScope,
+        }).toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': `Basic ${credentials}`
-          },
-          httpsAgent
+          }
         },
       );
 

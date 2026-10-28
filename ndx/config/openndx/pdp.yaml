@@ -1,0 +1,20 @@
+# OpenNDX 0.6.0: values are read through these explicit placeholders.
+server:
+  port: 8082
+  timeout: 10s
+
+environment: "{{env:ENVIRONMENT}}"
+logging:
+  level: "{{env:LOG_LEVEL}}"
+  format: "{{env:LOG_FORMAT}}"
+
+database:
+  driver: postgres
+  postgres:
+    host: postgres
+    port: "{{env:DB_PORT}}"
+    user: "{{env:DB_USER}}"
+    password: "{{env:DB_PASSWORD}}"
+    name: "{{env:DB_NAME}}"
+    sslMode: "{{env:DB_SSLMODE}}"
+  idleTimeout: 30m
