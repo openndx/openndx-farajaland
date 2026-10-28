@@ -3,51 +3,20 @@ import {Button} from "@/components/ui/button";
 import {Globe, User, Search} from "lucide-react";
 import {Link} from "react-router-dom";
 import {useEffect, useState} from "react";
-import {useAuthContext} from "@asgardeo/auth-react";
 
 export function Header() {
     const [user, setUser] = useState<SludiUser | null>(null);
 
     useEffect(() => {
         try {
-            setUser(user)
-        } catch (error) {
-            console.error("Error parsing user data:", error)
-        }
-    }, [])
-
-    const {state, getBasicUserInfo} = useAuthContext()
-
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            if (state.isAuthenticated) {
-                const basicUserInfo = await getBasicUserInfo()
-
-                setUser({
-                    authenticated: false,
-                    loginTime: "",
-                    mobileNumber: "9471234567",
-                    name: basicUserInfo.displayName!,
-                    email: basicUserInfo.email!,
-                    nic: "199512345678"
-                })
-
-                localStorage.setItem(
-                    "sludi_user",
-                    JSON.stringify({
-                        name: "Nuwan Fernando",
-                        nic: "199512345678",
-                        sludiNumber: "434343344334",
-                        mobileNumber: "94712345678",
-                        email: basicUserInfo.email,
-                        authenticated: true,
-                        loginTime: new Date().toISOString(),
-                    }),
-                )
+            const storedUser = localStorage.getItem("sludi_user");
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
             }
+        } catch (error) {
+            console.error("Error parsing demo user session:", error);
         }
-        fetchUserInfo()
-    }, [state]);
+    }, []);
 
     return (
         <header className="bg-white border-b border-border shadow-sm">
@@ -88,11 +57,11 @@ export function Header() {
                         <Button variant="outline" size="sm" className="text-sm bg-transparent">
                             தமிழ்
                         </Button>
-                        {state.isAuthenticated ? (
+                        {user?.authenticated ? (
                             <>
                                 <Button variant="ghost" size="sm">
                                     <User className="h-4 w-4 mr-2"/>
-                                    {state.displayName}
+                                    {user.name}
                                 </Button>
                             </>
                         ) : (

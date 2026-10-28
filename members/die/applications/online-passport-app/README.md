@@ -4,7 +4,7 @@ A modern passport application system built with **React + Vite** for the fronten
 
 ## Features
 
-✅ **Authentication with SLUDI** (Sri Lanka Unique Digital Identity)
+✅ **Mock SLUDI Login** (local demo session)
 ✅ **8-Step Application Form** with validation
 ✅ **GraphQL Integration** for government data (NDX)
 ✅ **Payment Gateway** (GovPay) integration
@@ -24,7 +24,6 @@ A modern passport application system built with **React + Vite** for the fronten
 - **Tailwind CSS** - Styling
 - **shadcn/ui** - UI components (built on Radix UI)
 - **Apollo Client** - GraphQL client
-- **Asgardeo** - Authentication (OAuth2/OIDC)
 - **React Hook Form + Zod** - Form validation
 
 ### Backend
@@ -122,32 +121,34 @@ The Express server will serve the built React app from `http://localhost:3000`.
 
 ## Environment Variables
 
+The frontend uses a local mock login and runs without Asgardeo URLs, client IDs,
+or frontend OAuth settings. The Docker build needs no authentication build
+arguments. Both application links send unauthenticated visitors to `/login`.
+The SLUDI and OTP steps simulate login; they do not call an identity provider.
+
+The backend separately uses ThunderID client credentials to call OpenNDX. Keep
+its token URL, client credentials, resource and scope configured as shown below.
+
 ### Client (`.env` in `client/`)
 ```env
 VITE_API_URL=http://localhost:3000/api
-VITE_ASGARDEO_BASE_URL=https://api.asgardeo.io/t/example
-VITE_ASGARDEO_CLIENT_ID=demo-passport-client
-VITE_ASGARDEO_SCOPES=openid profile
 ```
 
 ### Server (`.env` in `server/`)
 ```env
 PORT=3000
-ASGARDEO_BASE_URL=https://api.asgardeo.io/t/example
-ASGARDEO_CLIENT_ID=demo-passport-client
 TOKEN_URL=http://localhost:8090/oauth2/token
 CLIENT_ID=passport-app
 CLIENT_SECRET=1234
 TOKEN_RESOURCE=http://api.openndx.local
 TOKEN_SCOPE=getdata
-ASGARDEO_SCOPES=openid profile
 NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
 ```
 
 ## Application Flow
 
-1. **Home Page** - Landing page with hero section
-2. **Login** - SLUDI authentication (NIC + OTP)
+1. **Home Page** - Landing page with application links
+2. **Login** - Mock SLUDI number and OTP steps; saves the demo user in local storage
 3. **Apply** - 8-step application form:
    - Service Selection
    - Photograph Upload

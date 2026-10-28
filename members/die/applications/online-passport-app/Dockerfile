@@ -4,12 +4,7 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ .
-# Vite inlines VITE_* values at build time; .env files are excluded from the
-# build context, so the public sign-in settings are passed as build args.
-# Illustrative public client settings for optional SSO; the demo uses mock login.
-ARG VITE_ASGARDEO_BASE_URL=https://api.asgardeo.io/t/example
-ARG VITE_ASGARDEO_CLIENT_ID=demo-passport-client
-ARG VITE_ASGARDEO_SCOPES="openid profile"
+# The frontend uses the local demo login and needs no identity-provider settings.
 RUN npm run build
 
 # Build Stage for Server
