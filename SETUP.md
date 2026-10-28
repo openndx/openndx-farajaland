@@ -539,8 +539,11 @@ units, `members.ou_id` migration, management client, scopes and YAML configurati
   and `RGD_CLIENT_SECRET` in `ndx/.env`; retain your existing values there.
   Argus authentication now comes from `audit.apiKey` using `ARGUS_API_KEY`.
 - CE requires the issuer, audience and JWKS URL. Its audience remains
-  `CONSENT_PORTAL_APP`; `idp.subjectClaim` remains `email` because this demo's
-  data-owner identifiers are email addresses. OE's separate audience remains
+  `CONSENT_PORTAL_APP`; `idp.subjectClaim` is `nic`. The custom `Citizen` user
+  type defines `nic`, and the portal includes it in access tokens. Nayana's
+  `nic` is `nayana@opensource.lk`, matching the existing mock-provider and consent
+  owner identifiers. This avoids the v0.6.0 standard-claim lookup bug without
+  requiring a patched CE image. OE's separate audience remains
   `http://api.openndx.local`. Keep certificate verification enabled.
 - Health probes use `/health`. CE's old `/api/v1/health` and
   `/internal/api/v1/health` are removed; OE's health body is now
@@ -593,6 +596,32 @@ For installations older than OpenNDX v0.3.0 / ThunderID 1.0.1, follow the
 intermediate migration steps first: CE removed `owner_email`, and ThunderID
 1.0.1 changed its SQLite database filenames. Those older changes are separate
 from this v0.6.0 configuration update.
+
+### Citizen owner claim in v0.6.0
+
+The demo uses the custom `nic` access-token claim to identify a consent owner.
+`config/thunderid/bootstrap/07-citizen-user-type.yaml` declares the `Citizen`
+user type, the Consent Portal allows that type and requests its `nic` attribute,
+and `init.sh` imports Nayana as a Citizen. The user ID and login credentials stay
+the same. The demo sets both email and nic to `nayana@opensource.lk`: this is the
+fixture identifier already used by DRP/RGD and `consent_records.owner_id`, not a
+real national identity number. Existing policy grants and consents remain valid.
+
+`IDP_SUBJECT_CLAIM=nic` is passed into CE's YAML configuration. OpenNDX v0.6.0
+can read this custom claim from `ExtraClaims`; its standard `email` lookup bug is
+tracked in [openndx-core#717](https://github.com/openndx/openndx-core/issues/717),
+with the unified claims API improvement in
+[openndx-core#718](https://github.com/openndx/openndx-core/issues/718).
+
+For a fresh environment, `CLEAN_START=false ./init.sh` provisions this setup.
+For an existing environment, apply the updated Citizen user type, Consent Portal
+client and Nayana user through ThunderID's `/import` API with `upsert: true`,
+then recreate CE so it reads `IDP_SUBJECT_CLAIM=nic`. This updates the same user
+ID; no database-volume reset is needed. If you installed the temporary CE image
+override, remove that local override to return to the released `0.6.0` image.
+Sign out of the Consent Portal and sign in again after the change: existing
+access tokens will not gain a new claim automatically. Verify the new token's
+`nic` matches the queried owner's identifier before testing consent approval.
 
 ### Service Health Check Failures
 
