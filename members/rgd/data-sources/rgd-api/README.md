@@ -395,3 +395,21 @@ REGISTERED_CLIENTS: Dict[str, str] = {
 ### GraphQL endpoint returns 401
 - The GraphQL endpoint requires OAuth2 authentication
 - Obtain a token first, then include it in the Authorization header
+
+## Releasing a New Image
+
+Images are built for `linux/amd64` and `linux/arm64` and published to GHCR by
+`.github/workflows/release-images.yml`. To release, push a tag named after the image:
+
+```bash
+git tag rgd-api/v0.2.0
+git push origin rgd-api/v0.2.0
+```
+
+This publishes `ghcr.io/openndx/rgd-api:v0.2.0`. The workflow can also be run
+manually from the Actions tab. After releasing, update the `RGD_IMAGE` default in
+`members/run-member-services.sh`, or override it for a single run:
+
+```bash
+RGD_IMAGE=ghcr.io/openndx/rgd-api:v0.2.0 ./members/run-member-services.sh rgd
+```

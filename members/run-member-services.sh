@@ -40,15 +40,16 @@ NC='\033[0m' # No Color
 # Docker image configuration
 DOCKER_REGISTRY="${DOCKER_REGISTRY:-docker.io}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-mushrafmim}"
-# Member data-source services (DRP, DRP Adapter, RGD) are published as v0.1.0.
+# DRP and DRP Adapter are published as v0.1.0.
 IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
+# RGD is released to GHCR by .github/workflows/release-images.yml.
+RGD_IMAGE="${RGD_IMAGE:-ghcr.io/openndx/rgd-api:v0.2.0}"
 # The passport app is still published under 'latest'; keep it on its own tag.
 DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-latest}"
 
 # Image names
 DRP_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api:${IMAGE_TAG}"
 DRP_ADAPTER_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api-adapter:${IMAGE_TAG}"
-RGD_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/rgd-api:${IMAGE_TAG}"
 DIE_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/online-passport-app:${DIE_IMAGE_TAG}"
 
 # Container names
@@ -443,7 +444,8 @@ Commands:
 Environment Variables:
   DOCKER_REGISTRY  Docker registry to use (default: docker.io)
   IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
-  IMAGE_TAG        Tag for DRP, DRP Adapter and RGD images (default: v0.1.0)
+  IMAGE_TAG        Tag for DRP and DRP Adapter images (default: v0.1.0)
+  RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.2.0)
   DIE_IMAGE_TAG    Tag for the passport app image (default: latest)
 
 Examples:
