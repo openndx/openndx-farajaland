@@ -5,7 +5,7 @@
 
 The **National Data Exchange (NDX)** is a reference implementation of the **Open National Data Exchange (OpenNDX)** for the fictional country of Farajaland. Farajaland NDX demonstrates secure, privacy-preserving data exchange across government agencies through a citizen-centric, consent-based approach.
 
-The exchange components use [OpenNDX v0.6.0](https://github.com/openndx/openndx-core/releases/tag/v0.6.0).
+The exchange components use [OpenNDX v0.6.1](https://github.com/openndx/openndx-core/releases/tag/v0.6.1).
 For an existing installation, follow the [upgrade instructions](SETUP.md#upgrading-an-existing-environment).
 
 ## Table of Contents

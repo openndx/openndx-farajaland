@@ -45,8 +45,8 @@ IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
 # RGD is released to GHCR by .github/workflows/release-images.yml.
 RGD_IMAGE="${RGD_IMAGE:-ghcr.io/openndx/rgd-api:v0.1.0}"
 # Build the passport app from this checkout so its OAuth resource request
-# matches OE v0.6.0. Set DIE_BUILD_LOCAL=false to use a compatible published image.
-DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-openndx-0.6.0-local}"
+# matches OE v0.6.1. Set DIE_BUILD_LOCAL=false to use a compatible published image.
+DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-openndx-0.6.1-local}"
 DIE_BUILD_LOCAL="${DIE_BUILD_LOCAL:-true}"
 
 # Image names
@@ -452,7 +452,7 @@ Environment Variables:
   IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
   IMAGE_TAG        Tag for DRP and DRP Adapter images (default: v0.1.0)
   RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.1.0)
-  DIE_IMAGE_TAG    Tag for the passport app image (default: openndx-0.6.0-local)
+  DIE_IMAGE_TAG    Tag for the passport app image (default: openndx-0.6.1-local)
   DIE_BUILD_LOCAL  Build passport app from this checkout (default: true)
 
 Examples:

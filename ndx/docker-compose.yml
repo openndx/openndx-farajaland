@@ -48,7 +48,7 @@ services:
   # Person user type, Administrator role, Console app) plus our mounted files -
   # the ADMIN_CLI M2M client (used by init.sh to mint management tokens), the
   # APISIX gateway M2M client, the consent-portal SPA client, CORS, and the OE
-  # resource server and the Citizen user type. Import
+  # resource server. Import
   # is upsert-safe, so re-running is a no-op.
   #
   # Neither the passport app's M2M client nor the demo citizen user are here -
@@ -92,7 +92,6 @@ services:
       - ./config/thunderid/bootstrap/04-consent-portal.yaml:/opt/thunderid/bootstrap/04-consent-portal.yaml
       - ./config/thunderid/bootstrap/05-cors.yaml:/opt/thunderid/bootstrap/05-cors.yaml
       - ./config/thunderid/bootstrap/06-oe-resource.yaml:/opt/thunderid/bootstrap/06-oe-resource.yaml
-      - ./config/thunderid/bootstrap/07-citizen-user-type.yaml:/opt/thunderid/bootstrap/07-citizen-user-type.yaml
     restart: "no"
     networks:
       - exchange-network
@@ -135,7 +134,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    image: ghcr.io/openndx/policy-decision-point:0.6.0
+    image: ghcr.io/openndx/policy-decision-point:0.6.1
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -166,7 +165,7 @@ services:
         condition: service_healthy
       thunderid:
         condition: service_healthy
-    image: ghcr.io/openndx/consent-engine:0.6.0
+    image: ghcr.io/openndx/consent-engine:0.6.1
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -184,7 +183,7 @@ services:
       - IDP_AUDIENCE=${IDP_AUDIENCE:-CONSENT_PORTAL_APP}
       - IDP_JWKS_URL=${IDP_JWKS_URL:-http://thunderid:8090/oauth2/jwks}
       - IDP_JWKS_INSECURE_SKIP_VERIFY=${IDP_JWKS_INSECURE_SKIP_VERIFY:-false}
-      - IDP_SUBJECT_CLAIM=${IDP_SUBJECT_CLAIM:-nic}
+      - IDP_SUBJECT_CLAIM=${IDP_SUBJECT_CLAIM:-email}
     volumes:
       - ./config/openndx/ce.yaml:/app/config/config.yaml:ro
     healthcheck:
@@ -201,7 +200,7 @@ services:
     depends_on:
       - postgres
       - thunderid
-    image: ghcr.io/openndx/consent-portal:0.6.0
+    image: ghcr.io/openndx/consent-portal:0.6.1
     ports:
       - "${PORT_CP:-5173}:80"
     platform: linux/amd64
@@ -218,7 +217,7 @@ services:
       - IDP_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/openndx/orchestration-engine:0.6.0
+    image: ghcr.io/openndx/orchestration-engine:0.6.1
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
     depends_on:
@@ -260,7 +259,7 @@ services:
 
   # LSFLK/argus - a generic, reusable audit-logging microservice. This
   # replaces openndx-core's own (now-retired) audit-service; orchestration-
-  # engine's audit client targets argus directly. OpenNDX v0.6.0 uses
+  # engine's audit client targets argus directly. OpenNDX v0.6.1 uses
   # github.com/LSFLK/argus/pkg/audit v0.1.0.
   audit-service:
     image: ghcr.io/lsflk/argus:${AUDIT_SERVICE_IMAGE_TAG:-1103abbd087e5cc9d7e17c42bfb2395a6c9dcc57}

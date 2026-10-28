@@ -1,4 +1,4 @@
-# OpenNDX 0.6.0: values are read through these explicit placeholders.
+# OpenNDX 0.6.1: values are read through these explicit placeholders.
 server:
   port: 8082
   timeout: 10s

@@ -3,7 +3,7 @@
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 
 The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
-to OpenNDX **v0.6.0**. ThunderID remains at **1.0.1**, as in the upstream release.
+to OpenNDX **v0.6.1**. ThunderID remains at **1.0.1**, as in the upstream release.
 The passport app is built from this checkout at startup so it requests the OAuth
 audience required by the upgraded Orchestration Engine.
 
@@ -305,7 +305,7 @@ an `extensions.consentPortalUrl`. Open that URL in the browser and approve as
 GraphQL errors. After revocation, rerun it and expect `CE_NOT_APPROVED` again.
 A GraphQL HTTP status of 200 alone does not mean success: inspect `errors`.
 
-### Check v0.6.0 authentication
+### Check v0.6.1 authentication
 
 The public GraphQL endpoint requires a bearer token. A request without one must
 return **401**:
@@ -507,11 +507,12 @@ lsof -ti:9081 | xargs kill -9
 
 ### Upgrading an Existing Environment
 
-This checkout targets OpenNDX **v0.6.0** (`0.6.0` container tags). It builds on
+This checkout targets OpenNDX **v0.6.1** (`0.6.1` container tags). It builds on
 these upstream guides:
 
 - [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
 - [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
+- [v0.6.1 owner-claim hotfix](https://github.com/openndx/openndx-core/releases/tag/v0.6.1)
 
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
@@ -542,11 +543,11 @@ units, `members.ou_id` migration, management client, scopes and YAML configurati
   and `RGD_CLIENT_SECRET` in `ndx/.env`; retain your existing values there.
   Argus authentication now comes from `audit.apiKey` using `ARGUS_API_KEY`.
 - CE requires the issuer, audience and JWKS URL. Its audience remains
-  `CONSENT_PORTAL_APP`; `idp.subjectClaim` is `nic`. The custom `Citizen` user
-  type defines `nic`, and the portal includes it in access tokens. Nayana's
-  `nic` is `nayana@opensource.lk`, matching the existing mock-provider and consent
-  owner identifiers. This avoids the v0.6.0 standard-claim lookup bug without
-  requiring a patched CE image. OE's separate audience remains
+  `CONSENT_PORTAL_APP`; `idp.subjectClaim` is `email`. OpenNDX v0.6.1 fixes
+  standard owner-claim lookup, so the temporary custom `nic` claim and Citizen
+  user type are no longer needed. Nayana uses the built-in Person type, and the
+  access-token email matches the existing provider and consent-owner identifiers.
+  OE's separate audience remains
   `http://api.openndx.local`. Keep certificate verification enabled.
 - Health probes use `/health`. CE's old `/api/v1/health` and
   `/internal/api/v1/health` are removed; OE's health body is now
@@ -600,31 +601,33 @@ intermediate migration steps first: CE removed `owner_email`, and ThunderID
 1.0.1 changed its SQLite database filenames. Those older changes are separate
 from this v0.6.0 configuration update.
 
-### Citizen owner claim in v0.6.0
+### Return to the email owner claim in v0.6.1
 
-The demo uses the custom `nic` access-token claim to identify a consent owner.
-`config/thunderid/bootstrap/07-citizen-user-type.yaml` declares the `Citizen`
-user type, the Consent Portal allows that type and requests its `nic` attribute,
-and `init.sh` imports Nayana as a Citizen. The user ID and login credentials stay
-the same. The demo sets both email and nic to `nayana@opensource.lk`: this is the
-fixture identifier already used by DRP/RGD and `consent_records.owner_id`, not a
-real national identity number. Existing policy grants and consents remain valid.
+CE v0.6.1 fixes the standard-claim lookup bug in
+[openndx-core#717](https://github.com/openndx/openndx-core/issues/717).
+The demo again uses `IDP_SUBJECT_CLAIM=email`, the built-in `Person` user type,
+and the `email` access-token attribute. The temporary Citizen schema and `nic`
+token attribute have been removed from the deployment files. The unified authn
+claims API in [openndx-core#718](https://github.com/openndx/openndx-core/issues/718)
+is a separate improvement and is not required for this patch.
 
-`IDP_SUBJECT_CLAIM=nic` is passed into CE's YAML configuration. OpenNDX v0.6.0
-can read this custom claim from `ExtraClaims`; its standard `email` lookup bug is
-tracked in [openndx-core#717](https://github.com/openndx/openndx-core/issues/717),
-with the unified claims API improvement in
-[openndx-core#718](https://github.com/openndx/openndx-core/issues/718).
+The GraphQL argument remains `personInfo(nic: ...)`: in these mock providers its
+value is `nayana@opensource.lk`, which matches Nayana's email and the existing
+`consent_records.owner_id`. No provider IDs, grants, consent owner values or
+PostgreSQL data need to change.
 
-For a fresh environment, `CLEAN_START=false ./init.sh` provisions this setup.
-For an existing environment, apply the updated Citizen user type, Consent Portal
-client and Nayana user through ThunderID's `/import` API with `upsert: true`,
-then recreate CE so it reads `IDP_SUBJECT_CLAIM=nic`. This updates the same user
-ID; no database-volume reset is needed. If you installed the temporary CE image
-override, remove that local override to return to the released `0.6.0` image.
-Sign out of the Consent Portal and sign in again after the change: existing
-access tokens will not gain a new claim automatically. Verify the new token's
-`nic` matches the queried owner's identifier before testing consent approval.
+For an environment that used the temporary nic workaround, migrate Nayana back
+to `type: Person` with the same user ID and email, and apply the updated Consent
+Portal client so it allows Person and includes email in access tokens. The user
+can be updated through ThunderID's `PUT /users/{id}` API without changing its
+credentials. `init.sh` also upserts the Person user and the bootstrap client when
+starting the stack. An unused Citizen type can remain in an existing ThunderID
+volume; removing its local bootstrap file does not delete stored accounts.
+
+Pull and recreate the four OpenNDX services using the upgrade commands above.
+An old local CE image override must be removed so Compose uses the released
+`0.6.1` image. Sign out of the Consent Portal and sign in again, then verify
+consent listing and approval. No volume reset or database migration is needed.
 
 ### Service Health Check Failures
 
