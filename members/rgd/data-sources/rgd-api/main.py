@@ -17,12 +17,12 @@ from mock_data import PersonData
 # OAuth2 imports
 from oauth2 import (
     OAuth2Handler,
-    TokenRequest,
     TokenResponse,
     get_current_client,
     require_valid_client
 )
 from fastapi import Form
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 load_dotenv()
 
@@ -128,18 +128,13 @@ async def root():
 @app.post("/oauth/token", response_model=TokenResponse)
 async def get_token(
     grant_type: str = Form(...),
-    client_id: str = Form(...),
-    client_secret: str = Form(...)
+    credentials: HTTPBasicCredentials = Depends(HTTPBasic())
 ):
     """
     OAuth2 Token Endpoint - Client Credentials Grant
 
-    Accepts application/x-www-form-urlencoded (standard OAuth2 format)
-
-    Form parameters:
-    - grant_type: Must be "client_credentials"
-    - client_id: Your client ID
-    - client_secret: Your client secret
+    Authenticate with client_secret_basic: send the client ID and secret in the
+    Authorization: Basic header and grant_type=client_credentials in the form body.
 
     Returns:
     {
@@ -156,7 +151,8 @@ async def get_token(
         )
 
     # Verify client credentials
-    if not OAuth2Handler.verify_client(client_id, client_secret):
+    client_id = credentials.username
+    if not OAuth2Handler.verify_client(client_id, credentials.password):
         raise HTTPException(
             status_code=401,
             detail="Invalid client credentials"
