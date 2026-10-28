@@ -2,8 +2,8 @@
 # Declarative bootstrap resource: the Consent Portal's browser (SPA) application.
 #
 # clientId (CONSENT_PORTAL_APP) matches CONSENT_PORTAL_CLIENT_ID in ndx/.env,
-# which consent-engine reads as IDP_CLIENT_ID/IDP_AUDIENCE to validate portal
-# tokens - see docker-compose.yml's consent-engine service.
+# which Consent Engine checks as IDP_AUDIENCE to validate portal tokens.
+# The email claim is the owner identifier; see config/openndx/ce.yaml.
 #
 # {{ .CONSENT_PORTAL_URL }} is resolved from the container environment at
 # bootstrap time (see ndx/.env).

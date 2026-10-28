@@ -61,7 +61,7 @@ export default function Success() {
           created: new Date().toISOString(),
           verificationMethod: "did:gov:lk:immigration#key-1",
           proofPurpose: "assertionMethod",
-          jws: "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..mock_signature",
+          jws: "demo-header..demo-signature",
         },
       }
 

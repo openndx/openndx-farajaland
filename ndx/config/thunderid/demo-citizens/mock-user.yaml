@@ -5,8 +5,8 @@
 # infrastructure bootstrap (the API gateway's client, the consent portal's
 # client, CORS). A citizen is not exchange infrastructure: in a real
 # deployment, citizens arrive by self-registering through the consent portal
-# (the Person user type here has allowSelfRegistration: true) or some other
-# enrollment process - never as part of the exchange's own startup.
+# or some other enrollment process. This demo imports its Person-type user
+# explicitly after startup.
 #
 # Same treatment as config/thunderid/data-consumers/passport-application.yaml:
 # init.sh imports this at runtime via ThunderID's authenticated /import API,

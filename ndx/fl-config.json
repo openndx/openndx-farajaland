@@ -1,6 +1,5 @@
 {
-  "environment": "development",
-  "trustUpstream": true,
+  "schemaPath": "schema.graphql",
   "foundationalIdArgName": "nic",
   "ceUrl": "http://consent-engine:8081/internal/api/v1",
   "pdpUrl": "http://policy-decision-point:8082",
@@ -17,7 +16,7 @@
       "auth": {
         "type": "apiKey",
         "apiKeyName": "Choreo-API-Key",
-        "apiKeyValue": "chk_eyJjb25uZWN0aW9uLWlkIjoiMDFmMGFiMWMtMDZjYy0xYmJlLWE1MTUtODU1ZTA5NzEwMWNmIiwia2V5Ijoiajg3cDQ0MGFxNHFiZ3g2aWJuMjJrYW4zcGNnbmZ5cHp2NnR6M3Z2dmt6cGZlcjVmMDQ5byJ9cZY3Ew"
+        "apiKeyValue": "demo-drp-api-key"
       }
     },
     {
@@ -27,8 +26,8 @@
       "auth": {
         "type": "oauth2",
         "tokenUrl": "http://host.docker.internal:8080/oauth/token",
-        "clientId": "2oIRGWpHDjmTPqDo8tOJCu2DwANp",
-        "clientSecret": "xJclnZNorKGwLJPpKQRAtqK1ZtJh"
+        "clientId": "test_client",
+        "clientSecret": "test_secret"
       }
     }
   ],

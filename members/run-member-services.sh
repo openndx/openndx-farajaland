@@ -44,8 +44,10 @@ IMAGE_PREFIX="${IMAGE_PREFIX:-mushrafmim}"
 IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
 # RGD is released to GHCR by .github/workflows/release-images.yml.
 RGD_IMAGE="${RGD_IMAGE:-ghcr.io/openndx/rgd-api:v0.1.0}"
-# The passport app is still published under 'latest'; keep it on its own tag.
-DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-latest}"
+# Build the passport app from this checkout so its OAuth resource request
+# matches OE v0.6.1. Set DIE_BUILD_LOCAL=false to use a compatible published image.
+DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-openndx-0.6.1-local}"
+DIE_BUILD_LOCAL="${DIE_BUILD_LOCAL:-true}"
 
 # Image names
 DRP_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api:${IMAGE_TAG}"
@@ -285,7 +287,9 @@ run_die() {
     cleanup_container "$DIE_CONTAINER"
 
     if [ "$skip_pull" = false ]; then
-        if ! pull_image "$DIE_IMAGE"; then
+        if [ "$DIE_BUILD_LOCAL" = true ]; then
+            build_image "Online Passport App" "$DIE_DIR" "$DIE_IMAGE"
+        elif ! pull_image "$DIE_IMAGE"; then
             print_warning "Failed to pull image. Checking if local image exists..."
             if ! docker image inspect "$DIE_IMAGE" &> /dev/null; then
                 print_error "Image not found locally or in registry: $DIE_IMAGE"
@@ -298,7 +302,7 @@ run_die() {
     print_step "Starting Online Passport App container..."
     # This container is NOT on the exchange-network, so it reaches the published
     # NDX ports via host.docker.internal (the same host alias the orchestration
-    # engine uses for data sources in ndx/fl-config.json). `localhost` here would
+    # engine uses for data sources in ndx/config/openndx/oe.yaml). `localhost` here would
     # mean the container itself, and we no longer detect a host IP.
     docker run -d \
         --name "$DIE_CONTAINER" \
@@ -306,7 +310,9 @@ run_die() {
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9081/public/graphql" \
-        -e "TOKEN_URL=https://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
+        -e "TOKEN_URL=http://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
+        -e "TOKEN_RESOURCE=http://api.openndx.local" \
+        -e "TOKEN_SCOPE=getdata" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$DIE_IMAGE"
@@ -433,8 +439,8 @@ Commands:
   drp           Pull and run only the DRP API service (port 9090)
   adapter       Pull and run only the DRP API Adapter (GraphQL, port 9091)
   rgd           Pull and run only the RGD API service (port 8080)
-  die           Pull and run only the Online Passport App (port 3000)
-  all           Pull and run all services (default)
+  die           Build and run only the Online Passport App (port 3000)
+  all           Run all services; build the passport app locally (default)
   build         Build all Docker images locally
   build-run     Build all images locally and run them
   stop          Stop all running services
@@ -446,7 +452,8 @@ Environment Variables:
   IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
   IMAGE_TAG        Tag for DRP and DRP Adapter images (default: v0.1.0)
   RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.1.0)
-  DIE_IMAGE_TAG    Tag for the passport app image (default: latest)
+  DIE_IMAGE_TAG    Tag for the passport app image (default: openndx-0.6.1-local)
+  DIE_BUILD_LOCAL  Build passport app from this checkout (default: true)
 
 Examples:
   $0 drp                                    # Run only DRP service

@@ -4,6 +4,7 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ .
+# The frontend uses the local demo login and needs no identity-provider settings.
 RUN npm run build
 
 # Build Stage for Server

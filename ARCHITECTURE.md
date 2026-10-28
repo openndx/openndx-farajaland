@@ -534,12 +534,10 @@ Consent Verified → Fetch data from RGD + DRP → Return aggregated data
 ```graphql
 type PersonInfo {
     fullName: String @sourceInfo(
-        providerKey: "drp",
         schemaId: "drp-schema-v1",
         providerField: "person.fullName"
     )
     dateOfBirth: String @sourceInfo(
-        providerKey: "rgd",
         schemaId: "abc-212",
         providerField: "getPersonInfo.birthDate"
     )
@@ -572,7 +570,7 @@ type PersonInfo {
 - Easy setup with `./init.sh`
 
 **Comprehensive Configuration**:
-- `fl-config.json` for orchestration settings
+- `ndx/config/openndx/{pdp,ce,oe}.yaml` for backend settings
 - Environment variables for secrets
 - YAML configuration for APISIX
 

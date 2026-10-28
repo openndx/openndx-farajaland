@@ -1,0 +1,60 @@
+# OpenNDX 0.6.1: values are read through these explicit placeholders.
+server:
+  port: 4000
+  timeout: 30s
+
+environment: "{{env:ENVIRONMENT}}"
+logging:
+  level: "{{env:LOG_LEVEL}}"
+  format: "{{env:LOG_FORMAT}}"
+
+# Relative to this file in the container, where Compose mounts the schema.
+schemaPath: schema.graphql
+foundationalIdArgName: nic
+
+idp:
+  jwksURL: "{{env:IDP_JWKS_URL}}"
+  issuer: "{{env:IDP_ISSUER}}"
+  audience: "{{env:IDP_AUDIENCE}}"
+  insecureSkipTLSVerify: "{{env:IDP_JWKS_INSECURE_SKIP_VERIFY}}"
+
+pdp:
+  url: http://policy-decision-point:8082
+consentEngine:
+  url: http://consent-engine:8081/internal/api/v1
+
+audit:
+  url: http://audit-service:3001
+  apiKey: "{{env:ARGUS_API_KEY}}"
+  actorType: SYSTEM
+  actorId: orchestration-engine
+
+# Keep the IDs already registered in the seeded database and policy grants.
+providers:
+  - id: drp-schema-v1
+    url: http://host.docker.internal:9091
+    auth:
+      type: apiKey
+      apiKey:
+        key: Choreo-API-Key
+        value: "{{env:DRP_API_KEY}}"
+  - id: abc-212
+    url: http://host.docker.internal:8080/graphql
+    auth:
+      type: oauth2
+      oauth2:
+        tokenURL: http://host.docker.internal:8080/oauth/token
+        clientID: "{{env:RGD_CLIENT_ID}}"
+        clientSecret: "{{env:RGD_CLIENT_SECRET}}"
+
+argMappings:
+  - schemaId: drp-schema-v1
+    targetArgName: nic
+    sourceArgPath: personInfo-nic
+    targetArgPath: person
+    targetArgType: "ID!"
+  - schemaId: abc-212
+    targetArgName: nic
+    sourceArgPath: personInfo-nic
+    targetArgPath: getPersonInfo
+    targetArgType: "ID!"
