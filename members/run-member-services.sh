@@ -43,7 +43,7 @@ IMAGE_PREFIX="${IMAGE_PREFIX:-mushrafmim}"
 # DRP and DRP Adapter are published as v0.1.0.
 IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
 # RGD is released to GHCR by .github/workflows/release-images.yml.
-RGD_IMAGE="${RGD_IMAGE:-ghcr.io/openndx/rgd-api:v0.2.0}"
+RGD_IMAGE="${RGD_IMAGE:-ghcr.io/openndx/rgd-api:v0.1.0}"
 # The passport app is still published under 'latest'; keep it on its own tag.
 DIE_IMAGE_TAG="${DIE_IMAGE_TAG:-latest}"
 
@@ -445,7 +445,7 @@ Environment Variables:
   DOCKER_REGISTRY  Docker registry to use (default: docker.io)
   IMAGE_PREFIX     Image prefix/namespace (default: mushrafmim)
   IMAGE_TAG        Tag for DRP and DRP Adapter images (default: v0.1.0)
-  RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.2.0)
+  RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.1.0)
   DIE_IMAGE_TAG    Tag for the passport app image (default: latest)
 
 Examples:
