@@ -1,6 +1,6 @@
 # API audience and scope requested by data consumers calling the OE.
-# This identifier is also OE_IDP_AUDIENCE in ndx/.env and TOKEN_RESOURCE in
-# the passport app. It is an identifier, so no DNS or /etc/hosts entry is needed.
+# This identifier is also the OE's IDP_AUDIENCE in ndx/docker-compose.yml and
+# TOKEN_RESOURCE in members/run-member-services.sh. It is an identifier, so no DNS or /etc/hosts entry is needed.
 resource_type: resource_server
 id: 01900000-0000-7000-8000-000000000090
 name: Orchestration Engine Resource Server

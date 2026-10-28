@@ -318,7 +318,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 ```
 
 To call the exchange directly with the default demo client, request OE's resource
-and scope explicitly:
+and scope explicitly. If you changed the secrets in `ndx/.env`, load them into your
+shell first with `set -a; . ndx/.env; set +a`:
 
 ```bash
 NDX_TEST_TOKEN=$(curl -sS http://localhost:8090/oauth2/token \
@@ -388,9 +389,11 @@ docker-compose ps
 
 ### Step 2: Configure FUDI Applications
 
-ThunderID's bootstrap (`config/thunderid/bootstrap/02-admin-cli.sh`) already creates
+ThunderID's bootstrap (`config/thunderid/bootstrap/02-admin-cli.yaml`) already creates
 an `ADMIN_CLI` M2M client with management API access during `docker-compose up`, so
-you can create the required applications with curl instead of a browser console:
+you can create the required applications with curl instead of a browser console.
+If you changed the secrets in `.env`, load them into your shell first with
+`set -a; . ./.env; set +a`:
 
 ```bash
 # Run from the host shell, which reaches ThunderID at the published localhost:8090

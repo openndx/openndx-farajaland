@@ -311,7 +311,7 @@ run_die() {
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9081/public/graphql" \
         -e "TOKEN_URL=http://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
-        -e "TOKEN_RESOURCE=${OE_IDP_AUDIENCE:-http://api.openndx.local}" \
+        -e "TOKEN_RESOURCE=http://api.openndx.local" \
         -e "TOKEN_SCOPE=getdata" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
@@ -454,7 +454,6 @@ Environment Variables:
   RGD_IMAGE        Full RGD image reference (default: ghcr.io/openndx/rgd-api:v0.1.0)
   DIE_IMAGE_TAG    Tag for the passport app image (default: openndx-0.6.0-local)
   DIE_BUILD_LOCAL  Build passport app from this checkout (default: true)
-  OE_IDP_AUDIENCE  Passport token resource (default: http://api.openndx.local)
 
 Examples:
   $0 drp                                    # Run only DRP service

@@ -236,7 +236,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=${LOG_FORMAT:-text}
       - IDP_ISSUER=${IDP_ISSUER:-http://localhost:8090}
-      - IDP_AUDIENCE=${OE_IDP_AUDIENCE:-http://api.openndx.local}
+      - IDP_AUDIENCE=http://api.openndx.local
       - IDP_JWKS_URL=${IDP_JWKS_URL:-http://thunderid:8090/oauth2/jwks}
       - IDP_JWKS_INSECURE_SKIP_VERIFY=${IDP_JWKS_INSECURE_SKIP_VERIFY:-false}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
