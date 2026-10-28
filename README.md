@@ -8,6 +8,10 @@ The **National Data Exchange (NDX)** is a reference implementation of the **Open
 The exchange components use [OpenNDX v0.6.1](https://github.com/openndx/openndx-core/releases/tag/v0.6.1).
 For an existing installation, follow the [upgrade instructions](SETUP.md#upgrading-an-existing-environment).
 
+Checked-in credentials are local-demo fixtures. Provider examples use
+`demo-drp-api-key` and `test_client` / `test_secret`; sample tokens and client IDs
+are intentionally recognizable placeholders.
+
 ## Table of Contents
 
 - [Understanding the OpenNDX Ecosystem](#understanding-the-farajaland-ndx-ecosystem)

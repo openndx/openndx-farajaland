@@ -63,10 +63,10 @@ curl -X POST "http://localhost:8080/oauth/token" \
 Send the client ID and secret in the Basic authorization header. The form body
 contains only `grant_type`; credentials in the body (`client_secret_post`) are not accepted.
 
-**Response**:
+**Response** (the token below is an illustrative placeholder):
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "demo-access-token",
   "token_type": "bearer",
   "expires_in": 3600
 }

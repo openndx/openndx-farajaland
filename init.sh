@@ -365,7 +365,7 @@ OE_ROUTE_CODE=$(jq -n \
   }' | curl -s -o /dev/null -w "%{http_code}" \
     --location --request PUT http://localhost:9180/apisix/admin/routes \
     --header "Content-Type: application/json" \
-    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --header "X-API-KEY: demo-apisix-admin-key" \
     --data @-)
 
 if [ "$OE_ROUTE_CODE" != "200" ] && [ "$OE_ROUTE_CODE" != "201" ]; then
@@ -408,7 +408,7 @@ CE_ROUTE_CODE=$(jq -n \
   }' | curl -s -o /dev/null -w "%{http_code}" \
     --location --request PUT http://localhost:9180/apisix/admin/routes \
     --header "Content-Type: application/json" \
-    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --header "X-API-KEY: demo-apisix-admin-key" \
     --data @-)
 
 if [ "$CE_ROUTE_CODE" != "200" ] && [ "$CE_ROUTE_CODE" != "201" ]; then
@@ -423,7 +423,7 @@ print_info "Exposing Required Audit Service Endpoints Publicly"
 
 curl --location --request PUT 'http://localhost:9180/apisix/admin/routes' \
 --header 'Content-Type: application/json' \
---header 'X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo' \
+--header 'X-API-KEY: demo-apisix-admin-key' \
 --data @- <<EOF
 {
     "uri": "/api/audit-logs",

@@ -125,16 +125,16 @@ The Express server will serve the built React app from `http://localhost:3000`.
 ### Client (`.env` in `client/`)
 ```env
 VITE_API_URL=http://localhost:3000/api
-VITE_ASGARDEO_BASE_URL=https://api.asgardeo.io/t/lankasoftwarefoundation
-VITE_ASGARDEO_CLIENT_ID=Bt2BvJVTeJXSU5KAngNVe_mHnM0a
+VITE_ASGARDEO_BASE_URL=https://api.asgardeo.io/t/example
+VITE_ASGARDEO_CLIENT_ID=demo-passport-client
 VITE_ASGARDEO_SCOPES=openid profile
 ```
 
 ### Server (`.env` in `server/`)
 ```env
 PORT=3000
-ASGARDEO_BASE_URL=https://api.asgardeo.io/t/lankasoftwarefoundation
-ASGARDEO_CLIENT_ID=Bt2BvJVTeJXSU5KAngNVe_mHnM0a
+ASGARDEO_BASE_URL=https://api.asgardeo.io/t/example
+ASGARDEO_CLIENT_ID=demo-passport-client
 TOKEN_URL=http://localhost:8090/oauth2/token
 CLIENT_ID=passport-app
 CLIENT_SECRET=1234

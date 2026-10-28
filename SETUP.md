@@ -448,7 +448,7 @@ jq -n --arg pk "$PUBLIC_KEY" '{
     id: "oe-endpoint"
   }' | curl --location --request PUT http://localhost:9180/apisix/admin/routes \
     --header "Content-Type: application/json" \
-    --header "X-API-KEY: QuNGwapKysRvHfUtNkQFbUaGiiYeOcGo" \
+    --header "X-API-KEY: demo-apisix-admin-key" \
     --data @-
 ```
 
