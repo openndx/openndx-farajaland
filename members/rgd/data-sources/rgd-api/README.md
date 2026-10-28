@@ -5,7 +5,7 @@ This service provides a GraphQL subgraph for birth registration information incl
 ## Features
 
 - GraphQL API with birth certificate information queries
-- OAuth2.0 Client Credentials Grant authentication
+- OAuth2.0 Client Credentials Grant with `client_secret_basic` authentication
 - JWT-based access tokens
 - Protected GraphQL endpoint
 - Mock data for testing and development
@@ -37,7 +37,7 @@ The service will start on `http://localhost:8080`
 
 ## Authentication
 
-This API uses **OAuth2.0 Client Credentials Grant** for authentication. You must obtain an access token before accessing protected endpoints (including the GraphQL API).
+This API uses **OAuth2.0 Client Credentials Grant** with **`client_secret_basic`** authentication. You must obtain an access token before accessing protected endpoints (including the GraphQL API).
 
 ### Pre-configured Clients
 
@@ -45,7 +45,6 @@ The following test clients are available:
 
 | Client ID | Client Secret |
 |-----------|---------------|
-| `client_app_1` | `secret_key_123` |
 | `client_app_2` | `secret_key_456` |
 | `test_client` | `test_secret` |
 
@@ -56,9 +55,13 @@ The following test clients are available:
 **Request** (application/x-www-form-urlencoded):
 ```bash
 curl -X POST "http://localhost:8080/oauth/token" \
+  -u "test_client:test_secret" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=test_client&client_secret=test_secret"
+  -d "grant_type=client_credentials"
 ```
+
+Send the client ID and secret in the Basic authorization header. The form body
+contains only `grant_type`; credentials in the body (`client_secret_post`) are not accepted.
 
 **Response**:
 ```json
@@ -203,8 +206,9 @@ query GetPerson($nic: ID!) {
 ```bash
 # Step 1: Get access token
 TOKEN_RESPONSE=$(curl -s -X POST "http://localhost:8080/oauth/token" \
+  -u "test_client:test_secret" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=test_client&client_secret=test_secret")
+  -d "grant_type=client_credentials")
 
 ACCESS_TOKEN=$(echo $TOKEN_RESPONSE | jq -r '.access_token')
 
@@ -229,11 +233,8 @@ CLIENT_SECRET = "test_secret"
 # Step 1: Get access token
 token_response = requests.post(
     f"{BASE_URL}/oauth/token",
-    data={
-        "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    }
+    auth=(CLIENT_ID, CLIENT_SECRET),
+    data={"grant_type": "client_credentials"}
 )
 access_token = token_response.json()["access_token"]
 
@@ -287,11 +288,10 @@ async function queryGraphQL() {
   const tokenResponse = await axios.post(
     `${BASE_URL}/oauth/token`,
     new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET
+      grant_type: 'client_credentials'
     }),
     {
+      auth: { username: CLIENT_ID, password: CLIENT_SECRET },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -395,3 +395,21 @@ REGISTERED_CLIENTS: Dict[str, str] = {
 ### GraphQL endpoint returns 401
 - The GraphQL endpoint requires OAuth2 authentication
 - Obtain a token first, then include it in the Authorization header
+
+## Releasing a New Image
+
+Images are built for `linux/amd64` and `linux/arm64` and published to GHCR by
+`.github/workflows/release-images.yml`. To release, push a tag named after the image:
+
+```bash
+git tag rgd-api/v0.2.0
+git push origin rgd-api/v0.2.0
+```
+
+This publishes `ghcr.io/openndx/rgd-api:v0.2.0`. The workflow can also be run
+manually from the Actions tab. After releasing, update the `RGD_IMAGE` default in
+`members/run-member-services.sh`, or override it for a single run:
+
+```bash
+RGD_IMAGE=ghcr.io/openndx/rgd-api:v0.2.0 ./members/run-member-services.sh rgd
+```
