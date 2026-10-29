@@ -32,20 +32,20 @@ export async function fetchGovernmentData(nicNumber: string): Promise<NDXRespons
     return {
       personInfo: {
         nic: nicNumber,
-        fullName: "Perera Mudiyanselage Nimal Kumara Perera",
-        surname: "Perera",
-        otherNames: "Nimal Kumara",
+        fullName: "Suresh Fernando",
+        surname: "Fernando",
+        otherNames: "Suresh",
         sex: nicNumber.charAt(nicNumber.length - 2) === "1" ? "Male" : "Female",
         profession: "Software Engineer",
-        address: "No. 123, Galle Road, Colombo 03",
-        district: "Colombo",
+        address: "105 Main Street, Central City",
+        district: "Central",
         isDualCitizen: false,
-        name: "Kumara Perera",
+        name: "Suresh Fernando",
         dateOfBirth: "2020-04-03",
         birthInfo: {
           birthRegistrationNumber: "BR0895",
-          birthPlace: "Colombo 03",
-          district: "Colombo"
+          birthPlace: "Central General Hospital",
+          district: "Central"
         }
       }
     }

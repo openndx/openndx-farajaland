@@ -195,7 +195,7 @@ query GetPerson($nic: ID!) {
 **Variables**:
 ```json
 {
-  "nic": "nayana@opensource.lk"
+  "nic": "suresh@ndx.fl"
 }
 ```
 
@@ -217,7 +217,7 @@ curl -X POST "http://localhost:8080/graphql" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "{ getPersonInfo(nic: \"nayana@opensource.lk\") { name nic birth_date } }"
+    "query": "{ getPersonInfo(nic: \"suresh@ndx.fl\") { name nic birth_date } }"
   }'
 ```
 
@@ -247,7 +247,7 @@ headers = {
 graphql_query = {
     "query": """
     {
-      getPersonInfo(nic: "nayana@opensource.lk") {
+      getPersonInfo(nic: "suresh@ndx.fl") {
         name
         nic
         birth_date
@@ -306,7 +306,7 @@ async function queryGraphQL() {
     {
       query: `
         {
-          getPersonInfo(nic: "nayana@opensource.lk") {
+          getPersonInfo(nic: "suresh@ndx.fl") {
             name
             nic
             birth_date
@@ -340,11 +340,11 @@ queryGraphQL();
 ## Mock Data
 
 The service includes sample birth certificate data for the following NICs:
-- `nayana@opensource.lk` - Nuwan Fernando (Colombo)
-- `regina@opensource.lk` - Nisha Fernando (Galle)
-- `thanikan@opensource.lk` - Rohan Jayasuriya (Kandy)
-- `mohamed@opensource.lk` - Mohamed Ali (Galle)
-- `sanjiva@opensource.lk` - Sanjiva Edirisinghe (Jaffna)
+- `suresh@ndx.fl` - Suresh Fernando (Central)
+- `gomesh@ndx.fl` - Gomesh Fernando (Northern)
+- `naresh@ndx.fl` - Naresh Fernando (Southern)
+- `ramesh@ndx.fl` - Ramesh Fernando (Eastern)
+- `dinesh@ndx.fl` - Dinesh Fernando (Western)
 
 ## Federation Support
 

@@ -197,11 +197,11 @@ export default function GovPay() {
                   <div>
                     <Label htmlFor="bank-select">Select Your Bank</Label>
                     <select className="w-full p-2 border rounded-md">
-                      <option>Bank of Ceylon</option>
-                      <option>People's Bank</option>
+                      <option>National Bank</option>
+                      <option>People's Trust Bank</option>
                       <option>Commercial Bank</option>
-                      <option>Hatton National Bank</option>
-                      <option>Sampath Bank</option>
+                      <option>Central Bank</option>
+                      <option>Citizen Bank</option>
                     </select>
                   </div>
                 </div>

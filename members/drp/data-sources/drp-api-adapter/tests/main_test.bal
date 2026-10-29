@@ -23,7 +23,7 @@ public function mockInitializeDRPClient() returns DRPAPIClient|error {
 // Helper function to return the mock data record. This uses the 'PersonData' type from 'main.bal'.
 function getMockPersonData() returns PersonData {
     return {
-        nic: "199512345678", fullName: "Nuwan Fernando", otherNames: "", permanentAddress: "105 Bauddhaloka Mawatha, Colombo 00400", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
+        nic: "199512345678", fullName: "Suresh Fernando", otherNames: "", permanentAddress: "105 Main Street, Central City 10000", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
     };
 }
 
@@ -45,7 +45,7 @@ public function testPersonFound() returns error? {
     string query = "{ drp { person(nic: \"199512345678\") { fullName nic civilStatus } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
-    json expected = { "data": { "drp": { "person": { "fullName": "Nuwan Fernando", "nic": "199512345678", "civilStatus": "MARRIED" } } } };
+    json expected = { "data": { "drp": { "person": { "fullName": "Suresh Fernando", "nic": "199512345678", "civilStatus": "MARRIED" } } } };
     test:assertEquals(response, expected, "Response mismatch for found person");
 }
 
@@ -81,7 +81,7 @@ public function testParentInfoQuery() returns error? {
     string query = "{ drp { parentInfo(nic: \"199512345678\") { fatherName motherName } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
-    json expected = { "data": { "drp": { "parentInfo": { "fatherName": "Father Fernando", "motherName": "Ruby de Silva" } } } };
+    json expected = { "data": { "drp": { "parentInfo": { "fatherName": "John Fernando", "motherName": "Jane Fernando" } } } };
     test:assertEquals(response, expected, "Response mismatch for parentInfo query");
 }
 

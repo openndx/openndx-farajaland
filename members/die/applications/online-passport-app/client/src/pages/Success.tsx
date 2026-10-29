@@ -44,10 +44,10 @@ export default function Success() {
       const credentialData = {
         "@context": ["https://www.w3.org/2018/credentials/v1"],
         type: ["VerifiableCredential", "PassportApplicationCredential"],
-        issuer: "did:gov:lk:immigration",
+        issuer: "did:gov:fl:immigration",
         issuanceDate: new Date().toISOString(),
         credentialSubject: {
-          id: `did:sludi:${applicationData?.nic}`,
+          id: `did:fudi:${applicationData?.nic}`,
           applicationNumber: applicationNumber,
           applicantName: applicationData?.fullName || "N/A",
           nic: applicationData?.nic || "N/A",
@@ -59,7 +59,7 @@ export default function Success() {
         proof: {
           type: "Ed25519Signature2018",
           created: new Date().toISOString(),
-          verificationMethod: "did:gov:lk:immigration#key-1",
+          verificationMethod: "did:gov:fl:immigration#key-1",
           proofPurpose: "assertionMethod",
           jws: "demo-header..demo-signature",
         },
@@ -84,7 +84,7 @@ export default function Success() {
     // Create a simple text receipt
     const receiptContent = `
 DEPARTMENT OF IMMIGRATION AND EMIGRATION
-SRI LANKA
+FARAJALAND
 
 PASSPORT APPLICATION RECEIPT
 ============================
@@ -106,8 +106,8 @@ Contact Information:
 Status: SUBMITTED
 Next Steps: Your application is being processed. You will receive SMS/email updates.
 
-For inquiries, contact: +94 11 532 9300
-Website: www.immigration.gov.lk
+For inquiries, contact: +100 11 532 9300
+Website: www.immigration.ndx.fl
 
 Thank you for using our online service.
     `
@@ -310,8 +310,8 @@ Thank you for using our online service.
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <h4 className="font-medium mb-2">Contact Information</h4>
-                <p className="text-gray-600">Phone: +94 11 532 9300</p>
-                <p className="text-gray-600">Email: info@immigration.gov.lk</p>
+                <p className="text-gray-600">Phone: +100 11 532 9300</p>
+                <p className="text-gray-600">Email: info@immigration.ndx.fl</p>
               </div>
               <div>
                 <h4 className="font-medium mb-2">Office Hours</h4>
