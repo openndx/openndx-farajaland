@@ -1,13 +1,13 @@
 # OpenNDX Farajaland – Business Workflow
 
-This document provides a detailed walkthrough of the complete business workflow for Nayana's passport application, demonstrating how Farajaland's NDX facilitates citizen-centric data exchange with consent.
+This document provides a detailed walkthrough of the complete business workflow for Suresh's passport application, demonstrating how Farajaland's NDX facilitates citizen-centric data exchange with consent.
 
 ## Overview
 
 This workflow illustrates the end-to-end process of how the **Department of Immigration and Emigration (DIE)** accesses citizen data from multiple government departments (**RGD** and **DRP**) through the **NDX (National Data Exchange)** with explicit citizen consent.
 
 **Key Participants**:
-- **Nayana**: Citizen applying for a passport
+- **Suresh**: Citizen applying for a passport
 - **DIE**: Department of Immigration and Emigration (Data Consumer)
 - **RGD**: Registrar General's Department (Data Provider - birth records)
 - **DRP**: Department of Registration of Persons (Data Provider - personal registration)
@@ -20,7 +20,7 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 
 ### Step 1: Application Initiation
 
-- Nayana navigates to the DIE passport application portal
+- Suresh navigates to the DIE passport application portal
 - He logs into the passport application
 - He starts a new passport application
 
@@ -36,8 +36,8 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 - The DIE application identifies required data fields:
   - `fullName`, `dateOfBirth`, `birthPlace` (from RGD)
   - `address`, `profession` (from DRP)
-- DIE makes a **first GraphQL query** to NDX requesting Nayana's data
-- **NDX checks the Consent Engine** for Nayana's active consent for DIE
+- DIE makes a **first GraphQL query** to NDX requesting Suresh's data
+- **NDX checks the Consent Engine** for Suresh's active consent for DIE
 
 **Technical Details**:
 ```graphql
@@ -58,7 +58,7 @@ query {
 
 ### Step 3: Consent Portal URL Response
 
-Since Nayana hasn't granted consent yet, NDX responds with:
+Since Suresh hasn't granted consent yet, NDX responds with:
 
 **Response Structure**:
 ```json
@@ -76,7 +76,7 @@ Since Nayana hasn't granted consent yet, NDX responds with:
 
 **Key Points**:
 - **Status**: Consent required
-- **Consent Portal URL**: Where Nayana needs to grant permission
+- **Consent Portal URL**: Where Suresh needs to grant permission
 - **Data request details**: What fields are being requested
 - **Provider information**: Which data providers will be accessed (RGD, DRP)
 - **No data is returned** at this stage
@@ -88,11 +88,11 @@ Since Nayana hasn't granted consent yet, NDX responds with:
 ### Step 4: Redirect to Consent Portal
 
 **Actions**:
-- The passport application **redirects Nayana** to the consent portal URL from the response
+- The passport application **redirects Suresh** to the consent portal URL from the response
 - The URL contains parameters identifying the data consumer (DIE) and requested data scope
 
 **User Experience**:
-- Nayana's browser navigates to the consent portal
+- Suresh's browser navigates to the consent portal
 - He sees a branded consent interface with NDX and FUDI branding
 - The interface clearly shows he's granting consent for his passport application
 
@@ -101,12 +101,12 @@ Since Nayana hasn't granted consent yet, NDX responds with:
 ### Step 5: Citizen Authentication
 
 **Actions**:
-- Nayana **authenticates using his FUDI credentials** (Farajaland's national digital identity)
+- Suresh **authenticates using his FUDI credentials** (Farajaland's national digital identity)
 - Multi-factor authentication may be required for sensitive operations
-- FUDI (powered by ThunderID) verifies Nayana's identity securely
+- FUDI (powered by ThunderID) verifies Suresh's identity securely
 
 **Authentication Flow**:
-1. Nayana enters his FUDI username and password
+1. Suresh enters his FUDI username and password
 2. If MFA is enabled, he receives a code on his registered mobile device
 3. He enters the MFA code
 4. FUDI issues an authentication token
@@ -156,7 +156,7 @@ The Consent Portal displays a detailed consent request:
 ```
 
 **Citizen Actions**:
-- Nayana reviews the request carefully
+- Suresh reviews the request carefully
 - He can click "Learn More" to understand how his data will be used
 - He **grants consent** (or can deny if he chooses)
 - The consent is **recorded in the Consent Engine** with:
@@ -176,7 +176,7 @@ The Consent Portal displays a detailed consent request:
 ### Step 7: Redirect Back to Application
 
 **Actions**:
-- After granting consent, Nayana is **redirected back to the passport application**
+- After granting consent, Suresh is **redirected back to the passport application**
 - The application receives confirmation that consent has been granted
 - The session context is maintained
 
@@ -187,7 +187,7 @@ Consent Portal → Callback URL with session token → Passport Application
 
 **User Experience**:
 - Seamless transition back to the passport application
-- Nayana sees a "Processing..." or "Fetching your information..." message
+- Suresh sees a "Processing..." or "Fetching your information..." message
 - The application prepares to make the second data request
 
 ---
@@ -221,7 +221,7 @@ query {
 This time, NDX performs the complete orchestration:
 
 #### 9.1 Consent Verification
-- ✓ Nayana has active consent for DIE
+- ✓ Suresh has active consent for DIE
 - ✓ Consent scope includes all requested fields
 - ✓ Consent has not expired
 
@@ -269,17 +269,17 @@ NDX authenticates to each data provider:
 **From RGD**:
 ```json
 {
-  "fullName": "Nayana Johnson",
+  "fullName": "Suresh Fernando",
   "dateOfBirth": "1990-03-15",
-  "birthPlace": "Colombo"
+  "birthPlace": "Central City"
 }
 ```
 
 **From DRP** (via adapter):
 ```json
 {
-  "fullName": "Nayana Johnson",
-  "address": "123 Main Street, Colombo",
+  "fullName": "Suresh Fernando",
+  "address": "105 Main Street, Central City",
   "profession": "Software Engineer"
 }
 ```
@@ -290,10 +290,10 @@ NDX combines the results from both sources:
 {
   "data": {
     "personInfo": {
-      "fullName": "Nayana Johnson",
+      "fullName": "Suresh Fernando",
       "dateOfBirth": "1990-03-15",
-      "birthPlace": "Colombo",
-      "address": "123 Main Street, Colombo",
+      "birthPlace": "Central City",
+      "address": "105 Main Street, Central City",
       "profession": "Software Engineer"
     }
   }
@@ -321,9 +321,9 @@ NDX records the data access event:
 
 **Actions**:
 - DIE receives the **complete data set in a single response**
-- The passport application is **auto-populated** with Nayana's verified information
-- Nayana reviews the pre-filled form
-- Nayana submits his passport application
+- The passport application is **auto-populated** with Suresh's verified information
+- Suresh reviews the pre-filled form
+- Suresh submits his passport application
 - The application is **processed successfully** with verified data
 
 **Form Auto-Population**:
@@ -332,11 +332,11 @@ NDX records the data access event:
 ║        Passport Application - Personal Info        ║
 ╠════════════════════════════════════════════════════╣
 ║                                                    ║
-║  Full Name: Nayana Johnson           [verified ✓]  ║
+║  Full Name: Suresh Fernando          [verified ✓]  ║
 ║  Date of Birth: 1990-03-15           [verified ✓]  ║
-║  Birth Place: Colombo                [verified ✓]  ║
+║  Birth Place: Central City           [verified ✓]  ║
 ║  Current Address:                    [verified ✓]  ║
-║    123 Main Street, Colombo                        ║
+║    105 Main Street, Central City                   ║
 ║  Profession: Software Engineer       [verified ✓]  ║
 ║                                                    ║
 ║  [ Review ] [ Submit Application ]                 ║
@@ -354,7 +354,7 @@ NDX records the data access event:
 
 ## The Value Proposition
 
-### For Citizens (Nayana)
+### For Citizens (Suresh)
 
 **Transparency**:
 - Clear visibility into who accesses his data
@@ -471,7 +471,7 @@ Access is governed by policies:
 
 ### Scenario 1: Consent Already Granted
 
-If Nayana has previously granted consent to DIE (and it hasn't expired):
+If Suresh has previously granted consent to DIE (and it hasn't expired):
 
 1. Application Initiation (same as Step 1)
 2. **First Data Request** → NDX finds valid consent → **Data returned immediately**
@@ -483,12 +483,12 @@ If Nayana has previously granted consent to DIE (and it hasn't expired):
 
 ### Scenario 2: Consent Denied
 
-If Nayana denies consent:
+If Suresh denies consent:
 
 1. Steps 1-5 (same as main workflow)
-2. **Nayana clicks "Deny" on consent screen**
+2. **Suresh clicks "Deny" on consent screen**
 3. Consent denial is recorded
-4. Nayana is redirected back to passport application
+4. Suresh is redirected back to passport application
 5. Application shows: "Unable to fetch verified data. Please provide documents manually."
 
 **Result**: Application continues with manual data entry.
@@ -497,10 +497,10 @@ If Nayana denies consent:
 
 ### Scenario 3: Partial Consent
 
-If NDX supports granular consent, Nayana could grant access to some fields but not others:
+If NDX supports granular consent, Suresh could grant access to some fields but not others:
 
-1. Nayana grants consent for: `fullName`, `dateOfBirth`, `address`
-2. Nayana denies consent for: `birthPlace`, `profession`
+1. Suresh grants consent for: `fullName`, `dateOfBirth`, `address`
+2. Suresh denies consent for: `birthPlace`, `profession`
 3. Application receives partial data
 4. Missing fields must be manually entered
 
@@ -512,7 +512,7 @@ If NDX supports granular consent, Nayana could grant access to some fields but n
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│ Nayana  │     │   DIE   │     │   NDX   │     │  FUDI   │     │RGD/DRP  │
+│ Suresh  │     │   DIE   │     │   NDX   │     │  FUDI   │     │RGD/DRP  │
 └────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘
      │               │               │               │               │
      │ 1. Start App  │               │               │               │

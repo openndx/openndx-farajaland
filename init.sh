@@ -300,10 +300,10 @@ echo ""
 # config/thunderid/demo-citizens/mock-user.yaml).
 print_info "Registering the demo citizen user..."
 MOCK_USER_PASSWORD="${MOCK_USER_PASSWORD:-Abc12#45}"
-thunderid_import_resource "Demo citizen user (nayana)" \
+thunderid_import_resource "Demo citizen user (suresh)" \
     "$NDX_DIR/config/thunderid/demo-citizens/mock-user.yaml" \
     "{{ .MOCK_USER_PASSWORD }}" "$MOCK_USER_PASSWORD"
-print_info "Demo citizen username: nayana"
+print_info "Demo citizen username: suresh"
 echo ""
 # Extract ThunderID's RS256 signing public key so APISIX can verify token
 # signatures locally (public_key mode). We validate locally rather than via JWKS
@@ -457,7 +457,7 @@ print_info "Client ID:        $M2M_CLIENT_ID"
 print_info "Client Secret:    $M2M_CLIENT_SECRET"
 print_success "=========================================="
 echo ""
-print_info "Mock user - Username: nayana"
+print_info "Mock user - Username: suresh"
 print_info "Mock user - Password: ${MOCK_USER_PASSWORD:-Abc12#45}"
 echo ""
 
@@ -497,7 +497,7 @@ print_info "Please open the passport application in your browser:"
 print_info "  URL: http://localhost:3000"
 echo ""
 print_info "Login with the following credentials:"
-print_info "  Username:   nayana"
+print_info "  Username:   suresh"
 print_info "  Password:   Abc12#45"
 echo ""
 print_info "This will allow you to provide consent for the application."

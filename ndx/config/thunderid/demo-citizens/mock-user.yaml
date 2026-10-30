@@ -15,7 +15,7 @@
 # a user through the UI first - it is not a stand-in for the real citizen
 # enrollment flow. A follow-up PR will document that.
 #
-# Matches the DRP/RGD mock data's "nayana@opensource.lk" record
+# Matches the DRP/RGD mock data's "suresh@ndx.fl" record
 # (members/drp/data-sources/drp-api/mock_data.json).
 #
 # {{ .MOCK_USER_PASSWORD }} is resolved from the environment by init.sh
@@ -27,9 +27,9 @@ id: 01900000-0000-7000-8000-0000000000d1
 type: Person
 ouHandle: default
 attributes:
-  username: nayana
-  email: nayana@opensource.lk
-  given_name: Nayana
-  family_name: Samaranayake
+  username: suresh
+  email: suresh@ndx.fl
+  given_name: Suresh
+  family_name: Fernando
 credentials:
   password: "{{ .MOCK_USER_PASSWORD }}"

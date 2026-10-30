@@ -31,16 +31,16 @@ export default function Status() {
     const mockData = {
       applicationNumber: "PA2024001234",
       nicNumber: "123456789V",
-      applicantName: "John Doe Silva",
+      applicantName: "Suresh Fernando",
       serviceType: "Normal Processing",
       travelDocument: "All Countries Passport",
       currentStatus: "processing",
       submissionDate: "2024-01-15",
       estimatedCompletion: "2024-01-28",
       paymentStatus: "Completed",
-      paymentAmount: "LKR 3,750",
-      collectionCenter: "Department of Immigration and Emigration - Colombo",
-      contactNumber: "+94 11 532 9000",
+      paymentAmount: "FL 3,750",
+      collectionCenter: "Department of Immigration and Emigration - Central City",
+      contactNumber: "+100 11 532 9000",
     }
 
     if (searchQuery === "PA2024001234" || searchQuery === "123456789V") {
@@ -244,14 +244,14 @@ export default function Status() {
                     <Phone className="h-4 w-4 text-primary" />
                     <div>
                       <p className="font-medium">Hotline</p>
-                      <p className="text-muted-foreground">+94 11 532 9000</p>
+                      <p className="text-muted-foreground">+100 11 532 9000</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Mail className="h-4 w-4 text-primary" />
                     <div>
                       <p className="font-medium">Email</p>
-                      <p className="text-muted-foreground">info@immigration.gov.lk</p>
+                      <p className="text-muted-foreground">info@immigration.ndx.fl</p>
                     </div>
                   </div>
                 </div>

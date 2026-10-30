@@ -192,7 +192,7 @@ Please open the passport application in your browser:
   URL: http://localhost:3000
 
 Login with the following credentials:
-  Username:   nayana
+  Username:   suresh
   Password:   Abc12#45
 
 This will allow you to provide consent for the application.
@@ -208,7 +208,7 @@ All services are running. Monitoring...
 1. **Save M2M Credentials**: The displayed `Client ID` and `Client Secret` are needed to access the public endpoints. The client secret cannot be retrieved later.
 
 2. **Automatically Created User**: The script automatically creates a mock user for testing:
-   - **Username**: `nayana@opensource.lk` (or just `nayana` for login)
+   - **Username**: `suresh@ndx.fl` (or just `suresh` for login)
    - **Password**: `Abc12#45`
 
 3. **Access Points**:
@@ -255,20 +255,18 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 1. Open `http://localhost:3000/login` directly. This is the demo applicant login:
    keep the prefilled SLUDI value and OTP (`232323`), then click **Continue** and
    **Complete Login**. This simulated OTP flow selects the demo record identified
-   by `nayana@opensource.lk`; it does not send an SMS.
+   by `suresh@ndx.fl`; it does not send an SMS.
 2. On the application form, click **Load My Details**. With no approved consent,
    a Consent Portal popup should open. Personal details must remain unavailable
    until you approve.
-3. Sign in to ThunderID from the Consent Portal using **nayana** / **Abc12#45**
+3. Sign in to ThunderID from the Consent Portal using **suresh** / **Abc12#45**
    (unless you changed `MOCK_USER_PASSWORD`). This is separate from the mock
    applicant login above. Review the requested fields and click **Approve**.
 4. The passport app should retry automatically and fill the form. Check surname
-   **Samaranayake**, other names **Nayana**, address
-   **105 Bauddhaloka Mawatha, Colombo 00400**, profession **Software Engineer**,
-   birth certificate **BR2025001**, and birthplace **Colombo General Hospital**.
-   These combine DRP and RGD records. The fixtures contain different
-   names for the same owner: DRP's full name is Nayana Samaranayake and RGD's name
-   is Nuwan Fernando.
+   **Fernando**, other names **Suresh**, address
+   **105 Main Street, Central City 10000**, profession **Software Engineer**,
+   birth certificate **BR2025001**, and birthplace **Central General Hospital**.
+   These combine DRP and RGD records for **Suresh Fernando**.
 5. Open `http://localhost:5173/consents` in another tab, select the approved
    passport consent, and revoke it. Return to the passport app, reload the page,
    and click **Load My Details** again. It must request consent again, rather
@@ -291,7 +289,7 @@ providers for you.
 ```bash
 NDX_TEST_REQUEST='{
   "query": "query GetPersonInfo($nic: String!) { personInfo(nic: $nic) { fullName name otherNames address profession dateOfBirth sex birthInfo { birthRegistrationNumber birthPlace district } } }",
-  "variables": {"nic": "nayana@opensource.lk"}
+  "variables": {"nic": "suresh@ndx.fl"}
 }'
 
 curl -sS http://localhost:3000/api/graphql \
@@ -301,7 +299,7 @@ curl -sS http://localhost:3000/api/graphql \
 
 Before approval, expect `errors[0].extensions.code` to be `CE_NOT_APPROVED`, with
 an `extensions.consentPortalUrl`. Open that URL in the browser and approve as
-`nayana`, then rerun the same command. Expect populated `data.personInfo` and no
+`suresh`, then rerun the same command. Expect populated `data.personInfo` and no
 GraphQL errors. After revocation, rerun it and expect `CE_NOT_APPROVED` again.
 A GraphQL HTTP status of 200 alone does not mean success: inspect `errors`.
 
@@ -351,7 +349,7 @@ docker compose -f ndx/docker-compose.yml exec -T postgres \
   "SELECT count(*) AS audit_events FROM audit_logs;"
 ```
 
-Expected: consent records for owner `nayana@opensource.lk` and app `passport-app`,
+Expected: consent records for owner `suresh@ndx.fl` and app `passport-app`,
 with statuses matching your actions, and an audit count greater than zero that
 increases as you make requests. Audit writes are asynchronous; allow a few seconds.
 These commands use the checkout's default database user and database names.
@@ -545,7 +543,7 @@ units, `members.ou_id` migration, management client, scopes and YAML configurati
 - CE requires the issuer, audience and JWKS URL. Its audience remains
   `CONSENT_PORTAL_APP`; `idp.subjectClaim` is `email`. OpenNDX v0.6.1 fixes
   standard owner-claim lookup, so the temporary custom `nic` claim and Citizen
-  user type are no longer needed. Nayana uses the built-in Person type, and the
+  user type are no longer needed. Suresh uses the built-in Person type, and the
   access-token email matches the existing provider and consent-owner identifiers.
   OE's separate audience remains
   `http://api.openndx.local`. Keep certificate verification enabled.
@@ -612,11 +610,11 @@ claims API in [openndx-core#718](https://github.com/openndx/openndx-core/issues/
 is a separate improvement and is not required for this patch.
 
 The GraphQL argument remains `personInfo(nic: ...)`: in these mock providers its
-value is `nayana@opensource.lk`, which matches Nayana's email and the existing
+value is `suresh@ndx.fl`, which matches Suresh's email and the existing
 `consent_records.owner_id`. No provider IDs, grants, consent owner values or
 PostgreSQL data need to change.
 
-For an environment that used the temporary nic workaround, migrate Nayana back
+For an environment that used the temporary nic workaround, migrate Suresh back
 to `type: Person` with the same user ID and email, and apply the updated Consent
 Portal client so it allows Person and includes email in access tokens. The user
 can be updated through ThunderID's `PUT /users/{id}` API without changing its

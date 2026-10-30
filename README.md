@@ -58,7 +58,7 @@ The **NDX (National Data Exchange)** is the central infrastructure that:
 
 ## Example: Passport Application via NDX
 
-The **DIE Passport Application** is a registered consumer application in NDX that fetches user-specific data from multiple data providers. Here's how it works when **Nayana**, a citizen of Farajaland, applies for a passport. The application queries NDX to verify several pieces of information about him:
+The **DIE Passport Application** is a registered consumer application in NDX that fetches user-specific data from multiple data providers. Here's how it works when **Suresh**, a citizen of Farajaland, applies for a passport. The application queries NDX to verify several pieces of information about him:
 
 - His **full name, birth date, and birth place** - maintained by the **Registrar General's Department (RGD)**
 - His **current address and profession** - maintained by the **Department of Registration of Persons (DRP)**
@@ -79,29 +79,29 @@ This creates a tangled web of point-to-point connections. With just 3 department
 
 As a **registered application in NDX**, the DIE Passport Application can query user-specific data from multiple providers through a single endpoint:
 
-1. **Nayana logs into the DIE passport application** (registered as an NDX consumer)
-2. The application makes a **first data request** to NDX with a GraphQL query for Nayana's user-specific information
-3. **NDX checks for consent** - since Nayana hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
-   - A **consent portal URL** where Nayana needs to grant permission
+1. **Suresh logs into the DIE passport application** (registered as an NDX consumer)
+2. The application makes a **first data request** to NDX with a GraphQL query for Suresh's user-specific information
+3. **NDX checks for consent** - since Suresh hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
+   - A **consent portal URL** where Suresh needs to grant permission
    - Details of what data is being requested
    - Which data providers will be accessed (RGD, DRP)
-4. The **passport application redirects Nayana** to the consent portal URL
-5. Nayana **authenticates using his FUDI credentials** (Farajaland's national digital identity)
-6. The Consent Portal shows Nayana exactly what data will be shared:
+4. The **passport application redirects Suresh** to the consent portal URL
+5. Suresh **authenticates using his FUDI credentials** (Farajaland's national digital identity)
+6. The Consent Portal shows Suresh exactly what data will be shared:
    - Full name, birth date, and birth place (from RGD)
    - Current address and profession (from DRP)
    - Who is requesting the data (DIE)
    - For what purpose (passport application)
-7. **Nayana grants consent** - he is the data owner, and the departments (RGD, DRP) are merely custodians
-8. After granting consent, Nayana is **redirected back to the passport application**
+7. **Suresh grants consent** - he is the data owner, and the departments (RGD, DRP) are merely custodians
+8. After granting consent, Suresh is **redirected back to the passport application**
 9. The DIE application makes a **second data request** to NDX with the same GraphQL query
 10. This time, NDX orchestrates the data retrieval:
-    - Verifies Nayana's active consent ✓
+    - Verifies Suresh's active consent ✓
     - Checks access policies ✓
     - Federates the query across RGD and DRP
     - Aggregates the results
 11. DIE receives a **unified response with all required data**
-12. Nayana's passport application is **auto-populated and processed** seamlessly
+12. Suresh's passport application is **auto-populated and processed** seamlessly
 
 **The key differences**:
 - The **Passport Application is registered in NDX** as an authorized consumer
@@ -115,7 +115,7 @@ As a **registered application in NDX**, the DIE Passport Application can query u
 
 ## 📋 Want to See the Complete Workflow?
 
-For a detailed, step-by-step walkthrough of Nayana's passport application journey—including consent flows, data federation, and policy enforcement—check out our **[Business Workflow Guide](BUSINESS_WORKFLOW.md)**.
+For a detailed, step-by-step walkthrough of Suresh's passport application journey—including consent flows, data federation, and policy enforcement—check out our **[Business Workflow Guide](BUSINESS_WORKFLOW.md)**.
 
 The guide covers:
 - All 10 steps of the workflow in detail

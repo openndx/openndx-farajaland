@@ -48,11 +48,11 @@ export default function Login() {
       localStorage.setItem(
         "sludi_user",
         JSON.stringify({
-          name: "Nuwan Fernando",
-          nic: "nayana@opensource.lk",
+          name: "Suresh Fernando",
+          nic: "suresh@ndx.fl",
           sludiNumber: formData.sludiNumber,
           mobileNumber: "94712345678",
-          email: "nuwan@opensource.lk",
+          email: "suresh@ndx.fl",
           authenticated: true,
           loginTime: new Date().toISOString(),
         }),
