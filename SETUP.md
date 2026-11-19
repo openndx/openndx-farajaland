@@ -511,11 +511,12 @@ these upstream guides:
 - [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
 - [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
 - [v0.6.1 owner-claim hotfix](https://github.com/openndx/openndx-core/releases/tag/v0.6.1)
-- [v0.6.0 to v0.7.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.6-to-v0.7.md)
+- [v0.7.0 release notes](https://github.com/openndx/openndx-core/releases/tag/v0.7.0)
 
-An environment already on v0.6.1 only needs
-[Upgrade from v0.6.1 to v0.7.0](#upgrade-from-v061-to-v070). Older environments
-first follow the v0.6 steps below, then that section.
+This is a demo environment, so upgrades don't preserve data. To move any older
+environment to v0.7.0, follow
+[Upgrade from v0.6.1 to v0.7.0](#upgrade-from-v061-to-v070); it starts from
+empty volumes.
 
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
@@ -608,9 +609,9 @@ from this v0.6.0 configuration update.
 
 #### Upgrade from v0.6.1 to v0.7.0
 
-v0.7.0 changes the Policy Decision Point's tables, so an existing database must
-be migrated before the new PDP starts. Nothing else in this stack needs a data
-change.
+v0.7.0 changes the Policy Decision Point's tables, and a v0.6 database can't be
+read by the new PDP. Start from empty volumes so PostgreSQL loads the v0.7.0
+seed.
 
 **What changes for this demo:**
 
@@ -632,59 +633,25 @@ change.
   that OE uses.
 - **Portal Backend and the portals.** These are still not deployed here. If you
   run Portal Backend separately, upgrade it together with the PDP, and add the
-  `consent-bypass:read` and `consent-bypass:write` scopes as described in the
-  upstream guide. Two known issues in v0.7.0 affect Portal Backend: updating an
+  `consent-bypass:read` and `consent-bypass:write` scopes to its ThunderID
+  resources. Two known issues in v0.7.0 affect Portal Backend: updating an
   application's policy doesn't revoke fields that are left out
   ([openndx-core#775](https://github.com/openndx/openndx-core/issues/775)), and
   request bodies aren't validated
   ([openndx-core#776](https://github.com/openndx/openndx-core/issues/776)).
   Upstream no longer publishes Admin Portal or Member Portal images.
 
-**Upgrade without deleting data.** Run these from `ndx/`, with `init.sh` stopped
-using `CLEAN_START=false` as described above:
+**Upgrade.** This deletes all local data, including ThunderID users, consents
+and audit records. `CLEAN_START=true` only removes volumes when `init.sh` exits,
+so remove an existing environment's volumes before starting:
 
-1. Back up PostgreSQL. The migration renames the PDP table and moves its grants:
-   ```bash
-   docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > pdp-v0.6.1-backup.sql
-   ```
-2. Stop the v0.6.1 PDP and run the migration. It runs in one transaction and
-   stops without changing anything if the database is already migrated:
-   ```bash
-   docker compose stop policy-decision-point
-   docker compose exec -T postgres sh -c \
-     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' \
-     < migrations/pdp-v0.6-to-v0.7.sql
-   ```
-   Use this script rather than the upstream one: it matches the constraint and
-   index names that `opendif_schema.sql` created.
-3. Check that every field and grant was carried over. Expect 10 fields with both
-   flags `t`, and one active grant per previous allow-list entry (20 for the
-   seeded data):
-   ```bash
-   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
-   SELECT requires_allowlist, requires_consent, count(*) FROM field_policies GROUP BY 1, 2;
-   SELECT status, count(*), count(*) FILTER (WHERE expires_at < now()) AS expired FROM access_grants GROUP BY 1;
-   SQL
-   ```
-   The seeded `passport-app` grants expired on 2026-11-25 in earlier versions of
-   this repository; new environments now seed them until 2031-11-25. To extend
-   them in a migrated database:
-   ```bash
-   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
-   UPDATE access_grants SET expires_at = '2031-11-25T14:26:01+05:30', updated_at = now()
-   WHERE application_id = 'passport-app' AND status = 'active' AND NOT consent_bypass;
-   SQL
-   ```
-4. Pull and start the v0.7.0 services, then restart the demo:
-   ```bash
-   docker compose pull policy-decision-point consent-engine orchestration-engine consent-portal
-   docker compose up -d
-   cd ..
-   CLEAN_START=false ./init.sh
-   ```
-
-A new environment, or one started with `CLEAN_START=true`, gets the v0.7.0 tables
-from `opendif_schema.sql` and needs no migration.
+```bash
+cd ndx
+docker compose down -v
+docker compose pull policy-decision-point consent-engine orchestration-engine consent-portal
+cd ..
+./init.sh
+```
 
 **Verify** `/health` for each service, then run the passport query from
 [Test the exchange through the passport API](#test-the-exchange-through-the-passport-api) before consent, after
@@ -693,12 +660,8 @@ data from both DRP and RGD with no `errors`. A `PROVIDER_ERROR` usually means a
 provider rejected a mapped argument's variable type. An application without a
 grant must still get `PDP_NOT_ALLOWED`.
 
-**Roll back** by restoring the backup from step 1 and changing the four image
-tags in `docker-compose.yml` back to `0.6.1`. The configuration files work
-unchanged with v0.6.1. Without a backup, run the rollback script from the
-upstream guide's "Rolling back" section. It works on a database migrated with
-`migrations/pdp-v0.6-to-v0.7.sql`, and keeps plain grants but drops revoked and
-consent bypass grants.
+**Roll back** by checking out the v0.6.1 commit and starting from empty volumes
+in the same way.
 
 ### Return to the email owner claim in v0.6.1
 
