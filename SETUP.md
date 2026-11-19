@@ -3,7 +3,7 @@
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 
 The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
-to OpenNDX **v0.6.1**. ThunderID remains at **1.0.1**, as in the upstream release.
+to OpenNDX **v0.7.0**. ThunderID remains at **1.0.1**, as in the upstream release.
 The passport app is built from this checkout at startup so it requests the OAuth
 audience required by the upgraded Orchestration Engine.
 
@@ -303,7 +303,7 @@ an `extensions.consentPortalUrl`. Open that URL in the browser and approve as
 GraphQL errors. After revocation, rerun it and expect `CE_NOT_APPROVED` again.
 A GraphQL HTTP status of 200 alone does not mean success: inspect `errors`.
 
-### Check v0.6.1 authentication
+### Check authentication
 
 The public GraphQL endpoint requires a bearer token. A request without one must
 return **401**:
@@ -505,12 +505,18 @@ lsof -ti:9081 | xargs kill -9
 
 ### Upgrading an Existing Environment
 
-This checkout targets OpenNDX **v0.6.1** (`0.6.1` container tags). It builds on
+This checkout targets OpenNDX **v0.7.0** (`0.7.0` container tags). It builds on
 these upstream guides:
 
 - [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
 - [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
 - [v0.6.1 owner-claim hotfix](https://github.com/openndx/openndx-core/releases/tag/v0.6.1)
+- [v0.7.0 release notes](https://github.com/openndx/openndx-core/releases/tag/v0.7.0)
+
+This is a demo environment, so upgrades don't preserve data. To move any older
+environment to v0.7.0, follow
+[Upgrade from v0.6.1 to v0.7.0](#upgrade-from-v061-to-v070); it starts from
+empty volumes.
 
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
@@ -518,114 +524,61 @@ The legacy Portal Backend tables in `opendif_schema.sql` are not migrated here.
 If you deploy Portal Backend separately, follow both guides for its organization
 units, `members.ou_id` migration, management client, scopes and YAML configuration.
 
-**Configuration changes in v0.6.0:**
+#### Upgrade from v0.6.1 to v0.7.0
 
-- `ndx/config/openndx/{pdp,ce,oe}.yaml` configure the three Go services.
-  Compose mounts each at `/app/config/config.yaml`. Environment values affect a
-  service only through an explicit `{{env:NAME}}` placeholder in its YAML file.
-  Logging and database settings, TLS options and token verification use these files.
-- `OE_CONFIG_PATH=./config/openndx/oe.yaml` replaces `./fl-config.json` in
-  `ndx/.env`. The old JSON is retained only as a rollback reference; v0.6.0 does
-  not load it. Preserve your v0.5.0 schema and Compose/env files before upgrading.
-- `ndx/schema.graphql` is mounted at `/app/config/schema.graphql`, next to
-  OE's config. `providerKey` and the unused source-argument directive are removed.
-  DMT is still a future provider: its unconfigured vehicle fields and mapping
-  have been removed. The passport query continues to use DRP and RGD.
-- Provider IDs remain **`drp-schema-v1`** and **`abc-212`**, matching the existing
-  database and PDP grants. The renamed IDs in upstream's local sample are not
-  required for this deployment. Both mappings declare `targetArgType: "ID!"`
-  because the provider APIs take `ID!` while the consumer schema takes `String!`.
-- OE explicitly sets `pdp.url` and `consentEngine.url` (ending in
-  `/internal/api/v1`). Keep these keys: an empty PDP URL disables policy and
-  consent checks. Provider secrets now come from `DRP_API_KEY`, `RGD_CLIENT_ID`
-  and `RGD_CLIENT_SECRET` in `ndx/.env`; retain your existing values there.
-  Argus authentication now comes from `audit.apiKey` using `ARGUS_API_KEY`.
-- CE requires the issuer, audience and JWKS URL. Its audience remains
-  `CONSENT_PORTAL_APP`; `idp.subjectClaim` is `email`. OpenNDX v0.6.1 fixes
-  standard owner-claim lookup, so the temporary custom `nic` claim and Citizen
-  user type are no longer needed. Suresh uses the built-in Person type, and the
-  access-token email matches the existing provider and consent-owner identifiers.
-  OE's separate audience remains
-  `http://api.openndx.local`. Keep certificate verification enabled.
-- Health probes use `/health`. CE's old `/api/v1/health` and
-  `/internal/api/v1/health` are removed; OE's health body is now
-  `{"service":"orchestration-engine","status":"healthy"}`. Status-code probes
-  continue to work. OE no longer handles CORS: the browser uses the passport
-  backend proxy, which makes the server-side request to OE.
-- These services connect to the existing database without startup migrations.
-  The services wait for PostgreSQL/ThunderID health before starting.
+v0.7.0 changes the Policy Decision Point's tables, and a v0.6 database can't be
+read by the new PDP. Start from empty volumes so PostgreSQL loads the v0.7.0
+seed.
 
-**Changes carried forward from v0.5.0:** consumer tokens request OE's resource
-and `getdata` scope; the passport app is built locally with that token request.
-`init.sh` imports its client and role at runtime. CE routes expose both
-`/api/v1/consents` and `/api/v1/consents/*`, and OE uses a file schema instead of
-its removed `/sdl` API/database. GraphQL responses can contain both `data` and
-`errors`; fields that failed are unavailable, and the app surfaces the error.
+**What changes for this demo:**
 
-**Upgrade without deleting data:** back up PostgreSQL and ThunderID, save your
-old configuration/schema for rollback, and stop any running `init.sh` gracefully
-with its volume cleanup disabled. Its default `CLEAN_START=true` deletes volumes
-on exit; always use `CLEAN_START=false` for a persistent environment. If an old
-`init.sh` is already running with the default, back up before stopping it.
-Then run from the repository root:
+- **PDP field policies.** Each field's `accessControlType` and `isOwner` become
+  two flags, `requires_allowlist` and `requires_consent`. The `policy_metadata`
+  table is now `field_policies`, and its `allow_list` JSON moves into an
+  `access_grants` table. Every seeded field was `restricted` without `isOwner`,
+  so all ten keep requiring both an allow-list grant and the citizen's consent.
+  `ndx/opendif_schema.sql` seeds the v0.7.0 tables for new environments.
+- **No configuration changes.** `ndx/config/openndx/{pdp,ce,oe}.yaml` already
+  set `environment`, `logging` and the `targetArgType: "ID!"` mappings that OE
+  now needs, because it sends mapped arguments to providers as GraphQL
+  variables. Logs stay as text because `ndx/.env` sets `LOG_FORMAT=text`; the
+  upstream default is now `json`.
+- **Removed endpoints.** The PDP's `/debug` endpoints and its
+  `/api/v1/policy/metadata` and `update-allowlist` APIs are replaced by
+  `/api/v1/policy/fields` and `/api/v1/policy/grants`. Nothing in this repository
+  calls them. CE still serves `/health` and the `/internal/api/v1` consent API
+  that OE uses.
+- **Portal Backend and the portals.** These are still not deployed here. If you
+  run Portal Backend separately, upgrade it together with the PDP, and add the
+  `consent-bypass:read` and `consent-bypass:write` scopes to its ThunderID
+  resources. Two known issues in v0.7.0 affect Portal Backend: updating an
+  application's policy doesn't revoke fields that are left out
+  ([openndx-core#775](https://github.com/openndx/openndx-core/issues/775)), and
+  request bodies aren't validated
+  ([openndx-core#776](https://github.com/openndx/openndx-core/issues/776)).
+  Upstream no longer publishes Admin Portal or Member Portal images.
+
+**Upgrade.** This deletes all local data, including ThunderID users, consents
+and audit records. `CLEAN_START=true` only removes volumes when `init.sh` exits,
+so remove an existing environment's volumes before starting:
 
 ```bash
 cd ndx
-docker compose config --quiet
+docker compose down -v
 docker compose pull policy-decision-point consent-engine orchestration-engine consent-portal
-docker compose up -d
 cd ..
-CLEAN_START=false ./init.sh
+./init.sh
 ```
 
-`init.sh` also registers the passport app, demo citizen and gateway routes;
-`docker compose up` alone does not perform those steps. The v0.5.0 to v0.6.0
-upgrade needs no database migration or volume reset. If you use an alternate
-Compose env file, also update its OE path and provider credentials.
+**Verify** `/health` for each service, then run the passport query from
+[Test the exchange through the passport API](#test-the-exchange-through-the-passport-api) before consent, after
+approval and after revocation. Expect `CE_NOT_APPROVED` before approval, then
+data from both DRP and RGD with no `errors`. A `PROVIDER_ERROR` usually means a
+provider rejected a mapped argument's variable type. An application without a
+grant must still get `PDP_NOT_ALLOWED`.
 
-Verify `/health` and startup logs, check the unauthenticated request returns
-`401`, and run the passport query above before consent, after approval, and
-after revocation. Confirm an application without a policy grant gets
-`PDP_NOT_ALLOWED`, authorized queries fetch data from both DRP and RGD, and
-Argus records the requests. An HTTP `200` alone does not prove authorization.
-
-To roll back to v0.5.0, restore the saved v0.5.0 Compose/env files, JSON config
-and schema with `providerKey`, then redeploy the v0.5.0 images. Database data
-can stay in place. If upgrading from v0.4.0 with a separate Portal Backend,
-its member migration also requires the database backup for rollback.
-
-For installations older than OpenNDX v0.3.0 / ThunderID 1.0.1, follow the
-intermediate migration steps first: CE removed `owner_email`, and ThunderID
-1.0.1 changed its SQLite database filenames. Those older changes are separate
-from this v0.6.0 configuration update.
-
-### Return to the email owner claim in v0.6.1
-
-CE v0.6.1 fixes the standard-claim lookup bug in
-[openndx-core#717](https://github.com/openndx/openndx-core/issues/717).
-The demo again uses `IDP_SUBJECT_CLAIM=email`, the built-in `Person` user type,
-and the `email` access-token attribute. The temporary Citizen schema and `nic`
-token attribute have been removed from the deployment files. The unified authn
-claims API in [openndx-core#718](https://github.com/openndx/openndx-core/issues/718)
-is a separate improvement and is not required for this patch.
-
-The GraphQL argument remains `personInfo(nic: ...)`: in these mock providers its
-value is `suresh@ndx.fl`, which matches Suresh's email and the existing
-`consent_records.owner_id`. No provider IDs, grants, consent owner values or
-PostgreSQL data need to change.
-
-For an environment that used the temporary nic workaround, migrate Suresh back
-to `type: Person` with the same user ID and email, and apply the updated Consent
-Portal client so it allows Person and includes email in access tokens. The user
-can be updated through ThunderID's `PUT /users/{id}` API without changing its
-credentials. `init.sh` also upserts the Person user and the bootstrap client when
-starting the stack. An unused Citizen type can remain in an existing ThunderID
-volume; removing its local bootstrap file does not delete stored accounts.
-
-Pull and recreate the four OpenNDX services using the upgrade commands above.
-An old local CE image override must be removed so Compose uses the released
-`0.6.1` image. Sign out of the Consent Portal and sign in again, then verify
-consent listing and approval. No volume reset or database migration is needed.
+**Roll back** by checking out the v0.6.1 commit and starting from empty volumes
+in the same way.
 
 ### Service Health Check Failures
 

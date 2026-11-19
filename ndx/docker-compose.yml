@@ -134,7 +134,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    image: ghcr.io/openndx/policy-decision-point:0.6.1
+    image: ghcr.io/openndx/policy-decision-point:0.7.0
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
     environment:
@@ -165,7 +165,7 @@ services:
         condition: service_healthy
       thunderid:
         condition: service_healthy
-    image: ghcr.io/openndx/consent-engine:0.6.1
+    image: ghcr.io/openndx/consent-engine:0.7.0
     platform: linux/amd64
     container_name: ce-${ENVIRONMENT:-local}
     environment:
@@ -200,7 +200,7 @@ services:
     depends_on:
       - postgres
       - thunderid
-    image: ghcr.io/openndx/consent-portal:0.6.1
+    image: ghcr.io/openndx/consent-portal:0.7.0
     ports:
       - "${PORT_CP:-5173}:80"
     platform: linux/amd64
@@ -217,7 +217,7 @@ services:
       - IDP_SIGN_OUT_REDIRECT_URL=http://localhost:5173
 
   orchestration-engine:
-    image: ghcr.io/openndx/orchestration-engine:0.6.1
+    image: ghcr.io/openndx/orchestration-engine:0.7.0
     platform: linux/amd64
     container_name: oe-${ENVIRONMENT:-local}
     depends_on:
@@ -259,7 +259,7 @@ services:
 
   # LSFLK/argus - a generic, reusable audit-logging microservice. This
   # replaces openndx-core's own (now-retired) audit-service; orchestration-
-  # engine's audit client targets argus directly. OpenNDX v0.6.1 uses
+  # engine's audit client targets argus directly. OpenNDX v0.7.0 uses
   # github.com/LSFLK/argus/pkg/audit v0.1.0.
   audit-service:
     image: ghcr.io/lsflk/argus:${AUDIT_SERVICE_IMAGE_TAG:-1103abbd087e5cc9d7e17c42bfb2395a6c9dcc57}
