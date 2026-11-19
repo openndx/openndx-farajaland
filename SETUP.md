@@ -3,7 +3,7 @@
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 
 The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
-to OpenNDX **v0.6.1**. ThunderID remains at **1.0.1**, as in the upstream release.
+to OpenNDX **v0.7.0**. ThunderID remains at **1.0.1**, as in the upstream release.
 The passport app is built from this checkout at startup so it requests the OAuth
 audience required by the upgraded Orchestration Engine.
 
@@ -303,7 +303,7 @@ an `extensions.consentPortalUrl`. Open that URL in the browser and approve as
 GraphQL errors. After revocation, rerun it and expect `CE_NOT_APPROVED` again.
 A GraphQL HTTP status of 200 alone does not mean success: inspect `errors`.
 
-### Check v0.6.1 authentication
+### Check authentication
 
 The public GraphQL endpoint requires a bearer token. A request without one must
 return **401**:
@@ -505,18 +505,25 @@ lsof -ti:9081 | xargs kill -9
 
 ### Upgrading an Existing Environment
 
-This checkout targets OpenNDX **v0.6.1** (`0.6.1` container tags). It builds on
+This checkout targets OpenNDX **v0.7.0** (`0.7.0` container tags). It builds on
 these upstream guides:
 
 - [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
 - [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
 - [v0.6.1 owner-claim hotfix](https://github.com/openndx/openndx-core/releases/tag/v0.6.1)
+- [v0.6.0 to v0.7.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.6-to-v0.7.md)
+
+An environment already on v0.6.1 only needs
+[Upgrade from v0.6.1 to v0.7.0](#upgrade-from-v061-to-v070). Older environments
+first follow the v0.6 steps below, then that section.
 
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
 The legacy Portal Backend tables in `opendif_schema.sql` are not migrated here.
 If you deploy Portal Backend separately, follow both guides for its organization
 units, `members.ou_id` migration, management client, scopes and YAML configuration.
+
+#### Upgrade from v0.5.0 to v0.6.x
 
 **Configuration changes in v0.6.0:**
 
@@ -598,6 +605,100 @@ For installations older than OpenNDX v0.3.0 / ThunderID 1.0.1, follow the
 intermediate migration steps first: CE removed `owner_email`, and ThunderID
 1.0.1 changed its SQLite database filenames. Those older changes are separate
 from this v0.6.0 configuration update.
+
+#### Upgrade from v0.6.1 to v0.7.0
+
+v0.7.0 changes the Policy Decision Point's tables, so an existing database must
+be migrated before the new PDP starts. Nothing else in this stack needs a data
+change.
+
+**What changes for this demo:**
+
+- **PDP field policies.** Each field's `accessControlType` and `isOwner` become
+  two flags, `requires_allowlist` and `requires_consent`. The `policy_metadata`
+  table is now `field_policies`, and its `allow_list` JSON moves into an
+  `access_grants` table. Every seeded field was `restricted` without `isOwner`,
+  so all ten keep requiring both an allow-list grant and the citizen's consent.
+  `ndx/opendif_schema.sql` seeds the v0.7.0 tables for new environments.
+- **No configuration changes.** `ndx/config/openndx/{pdp,ce,oe}.yaml` already
+  set `environment`, `logging` and the `targetArgType: "ID!"` mappings that OE
+  now needs, because it sends mapped arguments to providers as GraphQL
+  variables. Logs stay as text because `ndx/.env` sets `LOG_FORMAT=text`; the
+  upstream default is now `json`.
+- **Removed endpoints.** The PDP's `/debug` endpoints and its
+  `/api/v1/policy/metadata` and `update-allowlist` APIs are replaced by
+  `/api/v1/policy/fields` and `/api/v1/policy/grants`. Nothing in this repository
+  calls them. CE still serves `/health` and the `/internal/api/v1` consent API
+  that OE uses.
+- **Portal Backend and the portals.** These are still not deployed here. If you
+  run Portal Backend separately, upgrade it together with the PDP, and add the
+  `consent-bypass:read` and `consent-bypass:write` scopes as described in the
+  upstream guide. Two known issues in v0.7.0 affect Portal Backend: updating an
+  application's policy doesn't revoke fields that are left out
+  ([openndx-core#775](https://github.com/openndx/openndx-core/issues/775)), and
+  request bodies aren't validated
+  ([openndx-core#776](https://github.com/openndx/openndx-core/issues/776)).
+  Upstream no longer publishes Admin Portal or Member Portal images.
+
+**Upgrade without deleting data.** Run these from `ndx/`, with `init.sh` stopped
+using `CLEAN_START=false` as described above:
+
+1. Back up PostgreSQL. The migration renames the PDP table and moves its grants:
+   ```bash
+   docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > pdp-v0.6.1-backup.sql
+   ```
+2. Stop the v0.6.1 PDP and run the migration. It runs in one transaction and
+   stops without changing anything if the database is already migrated:
+   ```bash
+   docker compose stop policy-decision-point
+   docker compose exec -T postgres sh -c \
+     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' \
+     < migrations/pdp-v0.6-to-v0.7.sql
+   ```
+   Use this script rather than the upstream one: it matches the constraint and
+   index names that `opendif_schema.sql` created.
+3. Check that every field and grant was carried over. Expect 10 fields with both
+   flags `t`, and one active grant per previous allow-list entry (20 for the
+   seeded data):
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+   SELECT requires_allowlist, requires_consent, count(*) FROM field_policies GROUP BY 1, 2;
+   SELECT status, count(*), count(*) FILTER (WHERE expires_at < now()) AS expired FROM access_grants GROUP BY 1;
+   SQL
+   ```
+   The seeded `passport-app` grants expired on 2026-11-25 in earlier versions of
+   this repository; new environments now seed them until 2031-11-25. To extend
+   them in a migrated database:
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+   UPDATE access_grants SET expires_at = '2031-11-25T14:26:01+05:30', updated_at = now()
+   WHERE application_id = 'passport-app' AND status = 'active' AND NOT consent_bypass;
+   SQL
+   ```
+4. Pull and start the v0.7.0 services, then restart the demo:
+   ```bash
+   docker compose pull policy-decision-point consent-engine orchestration-engine consent-portal
+   docker compose up -d
+   cd ..
+   CLEAN_START=false ./init.sh
+   ```
+
+A new environment, or one started with `CLEAN_START=true`, gets the v0.7.0 tables
+from `opendif_schema.sql` and needs no migration.
+
+**Verify** `/health` for each service, then run the passport query from
+[Test the exchange through the passport API](#test-the-exchange-through-the-passport-api) before consent, after
+approval and after revocation. Expect `CE_NOT_APPROVED` before approval, then
+data from both DRP and RGD with no `errors`. A `PROVIDER_ERROR` usually means a
+provider rejected a mapped argument's variable type. An application without a
+grant must still get `PDP_NOT_ALLOWED`.
+
+**Roll back** by restoring the backup from step 1 and changing the four image
+tags in `docker-compose.yml` back to `0.6.1`. The configuration files work
+unchanged with v0.6.1. Without a backup, run the rollback script from the
+upstream guide's "Rolling back" section. It works on a database migrated with
+`migrations/pdp-v0.6-to-v0.7.sql`, and keeps plain grants but drops revoked and
+consent bypass grants.
 
 ### Return to the email owner claim in v0.6.1
 
