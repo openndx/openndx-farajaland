@@ -68,7 +68,7 @@ setting() {
 setting IDENTITY_REGISTRY_IMAGE ghcr.io/openndx/identity-registry-api:v0.1.0
 setting IDENTITY_REGISTRY_ADAPTER_IMAGE ghcr.io/openndx/identity-registry-adapter:v0.1.0
 setting CIVIL_REGISTRY_IMAGE ghcr.io/openndx/civil-registry-api:v0.1.0
-setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.0
+setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.1
 setting IDENTITY_REGISTRY_BUILD_LOCAL false
 setting IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL false
 setting CIVIL_REGISTRY_BUILD_LOCAL false
@@ -451,7 +451,7 @@ Settings (read from the environment, then ndx/.env):
   IDENTITY_REGISTRY_IMAGE                Image pulled for the Identity Registry API (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
   IDENTITY_REGISTRY_ADAPTER_IMAGE        Image pulled for the Identity Registry Adapter (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
   CIVIL_REGISTRY_IMAGE                   Image pulled for the Civil Registry API (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
-  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.0)
+  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.1)
 
 Examples:
   $0 identity-registry                      # Run only the Identity Registry API

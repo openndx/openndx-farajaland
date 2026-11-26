@@ -547,7 +547,7 @@ locally (below):
 | Identity Registry API | `ghcr.io/openndx/identity-registry-api:v0.1.0` | `members/identity-registry/data-sources/identity-registry-api` |
 | Identity Registry Adapter | `ghcr.io/openndx/identity-registry-adapter:v0.1.0` | `members/identity-registry/data-sources/identity-registry-adapter` |
 | Civil Registry API | `ghcr.io/openndx/civil-registry-api:v0.1.0` | `members/civil-registry/data-sources/civil-registry-api` |
-| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.0` | `members/immigration/applications/online-passport-app` |
+| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.1` | `members/immigration/applications/online-passport-app` |
 
 The mock data and the Identity Registry API's `Config.toml` are mounted from
 this checkout, so editing them needs no new image.
