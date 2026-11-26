@@ -563,11 +563,12 @@ lsof -ti:9081 | xargs kill -9
 
 ### Upgrading an Existing Environment
 
-This checkout targets OpenNDX **v0.7.0** (`0.7.0` container tags). It builds on
-these upstream guides:
+This checkout targets OpenNDX **v0.7.0** (`0.7.0` container tags). The upstream
+release notes describe each step:
 
-- [v0.4.0 to v0.5.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.4-to-v0.5.md)
-- [v0.5.0 to v0.6.0](https://github.com/openndx/openndx-core/blob/main/docs/MIGRATION-v0.5-to-v0.6.md)
+- [v0.5.0 release notes](https://github.com/openndx/openndx-core/releases/tag/v0.5.0),
+  including its "Upgrading from v0.4.0" section
+- [v0.6.0 release notes](https://github.com/openndx/openndx-core/releases/tag/v0.6.0)
 - [v0.6.1 owner-claim hotfix](https://github.com/openndx/openndx-core/releases/tag/v0.6.1)
 - [v0.7.0 release notes](https://github.com/openndx/openndx-core/releases/tag/v0.7.0)
 
@@ -576,11 +577,17 @@ environment to v0.7.0, follow
 [Upgrade from v0.6.1 to v0.7.0](#upgrade-from-v061-to-v070); it starts from
 empty volumes.
 
+Empty volumes don't update your own env files. If you start Compose with an env
+file from before v0.6, such as `.env.local`, set
+`OE_CONFIG_PATH=./config/openndx/oe.yaml` in it. The old `./fl-config.json` is
+gone; OE v0.7.0 couldn't start with its settings anyway.
+
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
 The stack creates no Portal Backend tables.
-If you deploy Portal Backend separately, follow both guides for its organization
-units, `members.ou_id` migration, management client, scopes and YAML configuration.
+If you deploy Portal Backend separately, the v0.5.0 release notes cover its
+organization units, `members.ou_id` migration, management client and scopes, and
+the v0.6.0 notes its move to YAML configuration.
 
 #### Upgrade from v0.6.1 to v0.7.0
 
@@ -601,12 +608,14 @@ the v0.7.0 tables and loads the demo data.
   set `environment`, `logging` and the `targetArgType: "ID!"` mappings that OE
   now needs, because it sends mapped arguments to providers as GraphQL
   variables. Logs stay as text because `ndx/.env` sets `LOG_FORMAT=text`; the
-  upstream default is now `json`.
+  upstream default is now `json`. If you edit `oe.yaml`, keep `pdp.url` set: when
+  it is empty, OE skips the allow-list and consent checks and returns every field.
 - **Removed endpoints.** The PDP's `/debug` endpoints and its
   `/api/v1/policy/metadata` and `update-allowlist` APIs are replaced by
   `/api/v1/policy/fields` and `/api/v1/policy/grants`. Nothing in this repository
-  calls them. CE still serves `/health` and the `/internal/api/v1` consent API
-  that OE uses.
+  calls them. CE's `/api/v1/health` and `/internal/api/v1/health` are gone too:
+  point health checks at `/health`. CE still serves the `/internal/api/v1`
+  consent API that OE uses.
 - **Portal Backend and the portals.** These are still not deployed here. If you
   run Portal Backend separately, upgrade it together with the PDP, and add the
   `consent-bypass:read` and `consent-bypass:write` scopes to its ThunderID
@@ -629,6 +638,10 @@ cd ..
 ./init.sh
 ```
 
+Then sign out of the Consent Portal, or use a private browser window. `down -v`
+deletes ThunderID's signing keys, so the Consent Engine rejects a token from the
+old installation until you sign in again.
+
 **Verify** `/health` for each service, then run the passport query from
 [Test the exchange through the passport API](#test-the-exchange-through-the-passport-api) before consent, after
 approval and after revocation. Expect `CE_NOT_APPROVED` before approval, then
@@ -636,8 +649,17 @@ data from both DRP and RGD with no `errors`. A `PROVIDER_ERROR` usually means a
 provider rejected a mapped argument's variable type. An application without a
 grant must still get `PDP_NOT_ALLOWED`.
 
-**Roll back** by checking out the v0.6.1 commit and starting from empty volumes
-in the same way.
+**Roll back** by checking out `b447abb`, the last v0.6.1 commit, and starting
+from empty volumes in the same way. That commit's seed data gives the passport
+application allow-list entries that expired on 2026-11-25, so the PDP denies
+every query with "Access expired" until you extend them. While `init.sh` is
+running, from the repository root:
+
+```bash
+docker compose -f ndx/docker-compose.yml exec -T postgres \
+  psql -U exchange -d testdb2 -c \
+  "UPDATE policy_metadata SET allow_list = jsonb_set(allow_list, '{passport-app,expires_at}', to_jsonb(now() + interval '1 year')) WHERE allow_list ? 'passport-app';"
+```
 
 ### Service Health Check Failures
 

@@ -18,6 +18,8 @@ idp:
   audience: "{{env:IDP_AUDIENCE}}"
   insecureSkipTLSVerify: "{{env:IDP_JWKS_INSECURE_SKIP_VERIFY}}"
 
+# Keep pdp.url set. If it is empty, OE skips the allow-list and consent checks
+# entirely and returns every requested field.
 pdp:
   url: http://policy-decision-point:8082
 consentEngine:
