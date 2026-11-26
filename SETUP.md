@@ -125,7 +125,8 @@ CLEAN_START=false ./init.sh
 2. ✅ Starts NDX infrastructure services via Docker Compose:
    - etcd (service registry)
    - APISIX API Gateway
-   - PostgreSQL database
+   - PostgreSQL, with one database per service, set up by the one-shot
+     `migrate` service (see [Database Migrations](#database-migrations))
    - Orchestration Engine
    - Consent Engine
    - Policy Decision Point
@@ -341,7 +342,7 @@ From the repository root:
 
 ```bash
 docker compose -f ndx/docker-compose.yml exec -T postgres \
-  psql -U exchange -d testdb2 -c \
+  psql -U exchange -d ce_db -c \
   "SELECT owner_id, app_id, status, updated_at FROM consent_records ORDER BY updated_at DESC;"
 
 docker compose -f ndx/docker-compose.yml exec -T postgres \
@@ -484,6 +485,63 @@ cd members/drp/data-sources/drp-api-adapter
 bal run
 ```
 
+## Database Migrations
+
+PostgreSQL holds one database per service: `pdp_db` for the Policy Decision
+Point, `ce_db` for the Consent Engine and `audit_db` for the audit service. The
+names are set in `ndx/.env`. On every `docker compose up`, the one-shot `migrate`
+service prepares them before those services start. It uses the migration tool
+nsw-srilanka uses (`github.com/OpenNSW/agency/backend/cmd/migrate`), and runs
+three steps:
+
+1. Creates any database that is missing.
+2. Applies each service's pending migrations from `ndx/migrations/<service>/`,
+   and records them in that database's `__migrations` table.
+3. Loads the demo data in `ndx/migrations/pdp/seed/demo.sql`. It inserts only
+   rows that are missing, so it never overwrites changes made through the PDP API.
+
+The audit service creates its own tables, so it gets only its database.
+
+```
+ndx/migrations/
+├── Dockerfile                    # the migrate tool, on a postgres image for psql
+├── config.yaml                   # the tool's connection settings, read from the environment
+├── run.sh                        # the three steps above
+├── pdp/
+│   ├── 000001_initial_schema.sql
+│   └── seed/demo.sql             # demo field policies and the passport app's grants
+└── ce/
+    └── 000001_initial_schema.sql
+```
+
+To see which migrations are applied, from `ndx/`:
+
+```bash
+docker compose run --rm migrate status
+```
+
+**Adding a migration.** Add the next numbered file to the service's folder, for
+example `ndx/migrations/pdp/000002_add_example.sql`. Put the schema change under
+`-- @UP` and the statements that undo it under `-- @DOWN`. Versions run 000001,
+000002, … with no gaps. Don't edit a migration that has already been applied:
+the tool never re-runs it, so the edit wouldn't reach existing databases. To roll
+back a service's last migration, run `docker compose run --rm migrate down pdp`
+(or `ce`). Compose mounts `ndx/migrations`, so SQL changes need no rebuild.
+
+**Demo access grants.** The seed gives the passport application an access grant
+to each demo field. Each grant expires `DEMO_ACCESS_GRANT_TTL` after it's seeded.
+The TTL is set in `ndx/.env` as a PostgreSQL interval, such as `30 days`, and
+defaults to `1 year`. Grants are seeded once: later runs leave existing grants as
+they are, including revoked and expired ones. With `CLEAN_START=true`, the
+default, `init.sh` removes the volumes when it exits, so each run gets new
+grants. If you keep volumes for longer than the TTL, the passport application
+gets `PDP_NOT_ALLOWED` ("Access expired"). Run `docker compose down -v` to start
+over.
+
+Volumes created before this layout keep every table in one database,
+`testdb2`, which no service uses any more. `migrate` creates the new databases
+next to it and starts them empty. To remove it, run `docker compose down -v`.
+
 ## Troubleshooting
 
 ### Docker Issues
@@ -520,15 +578,15 @@ empty volumes.
 
 The demo runs PDP, Consent Engine, Orchestration Engine and Consent Portal.
 Portal Backend, Admin Portal and Member Portal are not deployed by this stack.
-The legacy Portal Backend tables in `opendif_schema.sql` are not migrated here.
+The stack creates no Portal Backend tables.
 If you deploy Portal Backend separately, follow both guides for its organization
 units, `members.ou_id` migration, management client, scopes and YAML configuration.
 
 #### Upgrade from v0.6.1 to v0.7.0
 
 v0.7.0 changes the Policy Decision Point's tables, and a v0.6 database can't be
-read by the new PDP. Start from empty volumes so PostgreSQL loads the v0.7.0
-seed.
+read by the new PDP. Start from empty volumes so the `migrate` service creates
+the v0.7.0 tables and loads the demo data.
 
 **What changes for this demo:**
 
@@ -537,7 +595,8 @@ seed.
   table is now `field_policies`, and its `allow_list` JSON moves into an
   `access_grants` table. Every seeded field was `restricted` without `isOwner`,
   so all ten keep requiring both an allow-list grant and the citizen's consent.
-  `ndx/opendif_schema.sql` seeds the v0.7.0 tables for new environments.
+  [`ndx/migrations/`](#database-migrations) creates the v0.7.0 tables and seeds
+  these policies and the passport application's grants.
 - **No configuration changes.** `ndx/config/openndx/{pdp,ce,oe}.yaml` already
   set `environment`, `logging` and the `targetArgType: "ID!"` mappings that OE
   now needs, because it sends mapped arguments to providers as GraphQL
@@ -727,6 +786,7 @@ Key configuration files you may need to modify:
 - `ndx/config/openndx/{pdp,ce,oe}.yaml` - Backend service configuration
 - `ndx/schema.graphql` - Unified GraphQL schema
 - `ndx/.env` - Environment variables for NDX services
+- `ndx/migrations/` - Database migrations and demo seed data, one folder per service
 - `ndx/config/apisix/conf.yaml` - API Gateway configuration
 - `ndx/config/thunderid/deployment.yaml` - FUDI/ThunderID configuration
 - `ndx/config/thunderid/bootstrap/02-admin-cli.yaml` - ThunderID ADMIN_CLI management client
