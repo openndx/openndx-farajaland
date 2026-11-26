@@ -134,6 +134,17 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# ThunderID 1.1.1 HTML-escapes the password typed at sign-in (& becomes &amp;)
+# but stores an imported password as given, so a password containing any of
+# & < > ' " can never sign in. Stop before starting anything.
+case "$MOCK_USER_PASSWORD" in
+    *[\&\<\>\'\"]*)
+        print_error "MOCK_USER_PASSWORD must not contain & < > ' or \" (set in ndx/.env or the environment)."
+        print_error "ThunderID escapes these characters at sign-in, so the demo citizen could not sign in."
+        exit 1
+        ;;
+esac
+
 print_info "Starting OpenNDX Farajaland - All Services"
 print_info "==========================================="
 echo ""
