@@ -61,8 +61,8 @@ The following are only required if you want to run and modify the data source se
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/opendif/opendif-farajaland.git
-cd opendif-farajaland
+git clone https://github.com/openndx/openndx-farajaland.git
+cd openndx-farajaland
 ```
 
 ### 2. Hostname Resolution (No Action Needed)
@@ -717,8 +717,7 @@ If you encounter issues not covered in this guide:
 
 1. Check the [main README](README.md) for additional documentation
 2. Review service logs: `docker-compose logs <service-name>`
-3. Open an issue on [GitHub Issues](https://github.com/opendif/opendif-farajaland/issues)
-4. Ask in [GitHub Discussions](https://github.com/opendif/opendif-farajaland/discussions)
+3. Open an issue on [GitHub Issues](https://github.com/openndx/openndx-farajaland/issues)
 
 ## Configuration Files
 
