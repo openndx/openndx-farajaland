@@ -1,17 +1,16 @@
 # Online Passport Application System
 
-A modern passport application system built with **React + Vite** for the frontend and **Express.js** for the backend. This is a rewrite of the `sri-lanka-passport` Next.js application with the same feature set.
+A modern passport application system built with **React + Vite** for the frontend and **Express.js** for the backend.
 
 ## Features
 
-✅ **Mock SLUDI Login** (local demo session)
+✅ **Mock FUDI Login** (local demo session)
 ✅ **8-Step Application Form** with validation
 ✅ **GraphQL Integration** for government data (NDX)
-✅ **Payment Gateway** (GovPay) integration
+✅ **Payment Gateway** (simulated)
 ✅ **Document Upload** functionality
 ✅ **Application Status Tracking**
 ✅ **Verifiable Credentials** (W3C standard)
-✅ **Multi-language Support** structure (English, Sinhala, Tamil)
 ✅ **Responsive Design** with Tailwind CSS
 
 ## Tech Stack
@@ -124,7 +123,7 @@ The Express server will serve the built React app from `http://localhost:3000`.
 The frontend uses a local mock login and runs without Asgardeo URLs, client IDs,
 or frontend OAuth settings. The Docker build needs no authentication build
 arguments. Both application links send unauthenticated visitors to `/login`.
-The SLUDI and OTP steps simulate login; they do not call an identity provider.
+The FUDI and OTP steps simulate login; they do not call an identity provider.
 
 The backend separately uses ThunderID client credentials to call OpenNDX. Keep
 its token URL, client credentials, resource and scope configured as shown below.
@@ -148,7 +147,7 @@ NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
 ## Application Flow
 
 1. **Home Page** - Landing page with application links
-2. **Login** - Mock SLUDI number and OTP steps; saves the demo user in local storage
+2. **Login** - Mock FUDI number and OTP steps; saves the demo user in local storage
 3. **Apply** - 8-step application form:
    - Service Selection
    - Photograph Upload
@@ -158,7 +157,7 @@ NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
    - Document Upload
    - Declaration & Signature
    - Payment Summary
-4. **GovPay** - Payment gateway (card, QR code, online banking)
+4. **Payment Gateway** (`/payment`) - Simulated payment by card, QR code or online banking
 5. **Success** - Application confirmation + Verifiable Credentials
 6. **Status** - Track application progress
 
@@ -173,7 +172,7 @@ NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
 
 ```graphql
 query GetData {
-  personInfo(nic: "199512345678") {
+  personInfo(nic: "suresh@ndx.fl") {
     name
     fullName
     otherNames

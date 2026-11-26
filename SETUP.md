@@ -259,7 +259,7 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 ### Test the browser flow
 
 1. Open `http://localhost:3000/login` directly. This is the demo applicant login:
-   keep the prefilled SLUDI value and OTP (`232323`), then click **Continue** and
+   keep the prefilled FUDI value and OTP (`232323`), then click **Continue** and
    **Complete Login**. This simulated OTP flow selects the demo record identified
    by `suresh@ndx.fl`; it does not send an SMS.
 2. On the application form, click **Load My Details**. With no approved consent,

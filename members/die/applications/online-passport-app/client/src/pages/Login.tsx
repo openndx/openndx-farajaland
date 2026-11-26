@@ -10,17 +10,17 @@ import { Loader2, Shield } from "lucide-react";
 export default function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    sludiNumber: "3434 3434 3434",
+    fudiNumber: "3434 3434 3434",
     otp: "232323",
   });
-  const [step, setStep] = useState<"sludiNumber" | "otp">("sludiNumber");
+  const [step, setStep] = useState<"fudiNumber" | "otp">("fudiNumber");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleNICSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.sludiNumber || formData.sludiNumber.length < 9) {
-      setError("Please enter a valid NIC number");
+    if (!formData.fudiNumber || formData.fudiNumber.length < 9) {
+      setError("Please enter a valid FUDI number");
       return;
     }
 
@@ -46,12 +46,12 @@ export default function Login() {
     setTimeout(() => {
       // Store user session
       localStorage.setItem(
-        "sludi_user",
+        "fudi_user",
         JSON.stringify({
           name: "Suresh Fernando",
           nic: "suresh@ndx.fl",
-          sludiNumber: formData.sludiNumber,
-          mobileNumber: "94712345678",
+          fudiNumber: formData.fudiNumber,
+          mobileNumber: "+100712345678",
           email: "suresh@ndx.fl",
           authenticated: true,
           loginTime: new Date().toISOString(),
@@ -71,8 +71,8 @@ export default function Login() {
             <div className="flex items-center justify-center mb-4">
               <Shield className="h-12 w-12 text-cyan-600 mr-3" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">SLUDI</h1>
-                <p className="text-sm text-gray-600">Sri Lanka Unique Digital Identity</p>
+                <h1 className="text-2xl font-bold text-gray-900">FUDI</h1>
+                <p className="text-sm text-gray-600">Farajaland Unique Digital Identity</p>
               </div>
             </div>
           </div>
@@ -80,12 +80,12 @@ export default function Login() {
 
           <CardHeader className="text-center">
             <CardTitle className="text-xl">
-              {step === "sludiNumber" && "Login with SLUDI"}
+              {step === "fudiNumber" && "Login with FUDI"}
               {step === "otp" && "Verify OTP"}
             </CardTitle>
             <CardDescription>
-              {step === "sludiNumber" && "Enter your SLUDI Number"}
-              {step === "otp" && `OTP sent to mobile number registered with SLUDI ${formData.sludiNumber}`}
+              {step === "fudiNumber" && "Enter your FUDI Number"}
+              {step === "otp" && `OTP sent to mobile number registered with FUDI ${formData.fudiNumber}`}
             </CardDescription>
           </CardHeader>
 
@@ -96,16 +96,16 @@ export default function Login() {
               </Alert>
             )}
 
-            {step === "sludiNumber" && (
+            {step === "fudiNumber" && (
               <form onSubmit={handleNICSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="sludiNumber">SLUDI Number</Label>
+                  <Label htmlFor="fudiNumber">FUDI Number</Label>
                   <Input
-                    id="sludiNumber"
+                    id="fudiNumber"
                     type="text"
                     placeholder="xxxx xxxx xxxx"
-                    value={formData.sludiNumber}
-                    onChange={(e) => setFormData({ ...formData, sludiNumber: e.target.value })}
+                    value={formData.fudiNumber}
+                    onChange={(e) => setFormData({ ...formData, fudiNumber: e.target.value })}
                     className="mt-1"
                     maxLength={12}
                   />
@@ -114,7 +114,7 @@ export default function Login() {
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying SLUDI...
+                      Verifying FUDI...
                     </>
                   ) : (
                     "Continue"
@@ -152,9 +152,9 @@ export default function Login() {
                   type="button"
                   variant="outline"
                   className="w-full bg-transparent"
-                  onClick={() => setStep("sludiNumber")}
+                  onClick={() => setStep("fudiNumber")}
                 >
-                  Back to SLUDI Entry
+                  Back to FUDI Entry
                 </Button>
               </form>
             )}
@@ -163,7 +163,7 @@ export default function Login() {
 
         <div className="text-center mt-6 text-xs text-gray-500">
           <p>Powered by Department of Registrar of Persons</p>
-          <p>Secured by SLUDI - Sri Lanka's Digital Identity Platform</p>
+          <p>Secured by FUDI - Farajaland's Digital Identity Platform</p>
         </div>
       </div>
     </div>

@@ -30,7 +30,7 @@ export default function Status() {
     // Mock application data
     const mockData = {
       applicationNumber: "PA2024001234",
-      nicNumber: "123456789V",
+      nicNumber: "suresh@ndx.fl",
       applicantName: "Suresh Fernando",
       serviceType: "Normal Processing",
       travelDocument: "All Countries Passport",
@@ -43,7 +43,7 @@ export default function Status() {
       contactNumber: "+100 11 532 9000",
     }
 
-    if (searchQuery === "PA2024001234" || searchQuery === "123456789V") {
+    if (searchQuery === "PA2024001234" || searchQuery === "suresh@ndx.fl") {
       setApplicationData(mockData)
     } else {
       setError("Application not found. Please check your application number or NIC.")
@@ -126,7 +126,7 @@ export default function Status() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-blue-800 text-sm">
-                <strong>Demo:</strong> Try searching with "PA2024001234" or "123456789V" to see a sample application
+                <strong>Demo:</strong> Try searching with "PA2024001234" or "suresh@ndx.fl" to see a sample application
                 status.
               </p>
             </div>

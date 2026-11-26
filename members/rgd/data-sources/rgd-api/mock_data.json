@@ -14,14 +14,14 @@
       "is_grandfather_born_in_sri_lanka": true,
       "father": {
         "name": "John Fernando",
-        "nic": "710123456V",
+        "nic": "john@ndx.fl",
         "birth_date": "1985-08-21",
         "birth_place": "Central City",
         "race": "Citizen"
       },
       "mother": {
         "name": "Jane Fernando",
-        "nic": "790987654V",
+        "nic": "jane@ndx.fl",
         "birth_date": "1987-02-11",
         "birth_place": "Southport",
         "race": "Citizen",
@@ -34,7 +34,7 @@
         "full_name": "John Fernando",
         "residence": "105 Main Street, Central City",
         "relationship_to_baby": "Father",
-        "nic": "710123456V"
+        "nic": "john@ndx.fl"
       }
     },
     {
@@ -51,14 +51,14 @@
       "is_grandfather_born_in_sri_lanka": false,
       "father": {
         "name": "Robert Fernando",
-        "nic": "680123456V",
+        "nic": "robert@ndx.fl",
         "birth_date": "1982-04-10",
         "birth_place": "Northville",
         "race": "Citizen"
       },
       "mother": {
         "name": "Mary Fernando",
-        "nic": "750987654V",
+        "nic": "mary@ndx.fl",
         "birth_date": "1985-12-05",
         "birth_place": "Eastbrook",
         "race": "Citizen",
@@ -71,7 +71,7 @@
         "full_name": "Robert Fernando",
         "residence": "10 Park Avenue, Northville",
         "relationship_to_baby": "Father",
-        "nic": "680123456V"
+        "nic": "robert@ndx.fl"
       }
     },
     {
@@ -88,14 +88,14 @@
       "is_grandfather_born_in_sri_lanka": true,
       "father": {
         "name": "David Fernando",
-        "nic": "730567890V",
+        "nic": "david@ndx.fl",
         "birth_date": "1980-06-02",
         "birth_place": "Southport",
         "race": "Citizen"
       },
       "mother": {
         "name": "Sarah Fernando",
-        "nic": "760987123V",
+        "nic": "sarah@ndx.fl",
         "birth_date": "1982-11-20",
         "birth_place": "Westfield",
         "race": "Citizen",
@@ -108,7 +108,7 @@
         "full_name": "Sarah Fernando",
         "residence": "1034 Oak Road, Southport",
         "relationship_to_baby": "Mother",
-        "nic": "760987123V"
+        "nic": "sarah@ndx.fl"
       }
     },
     {
@@ -125,27 +125,27 @@
       "is_grandfather_born_in_sri_lanka": true,
       "father": {
         "name": "Michael Fernando",
-        "nic": "680123456V",
+        "nic": "michael@ndx.fl",
         "birth_date": "1985-05-10",
         "birth_place": "Eastbrook",
         "race": "Citizen"
       },
       "mother": {
         "name": "Emily Fernando",
-        "nic": "750987654V",
+        "nic": "emily@ndx.fl",
         "birth_date": "1988-08-20",
         "birth_place": "Central City",
         "race": "Citizen",
         "age_at_birth": 32
       },
       "date_of_registration": "2020-01-20",
-      "registrar_signature": "https://example.com/signatures/680123456V",
+      "registrar_signature": "https://example.com/signatures/michael@ndx.fl",
       "informant": {
-        "signature": "https://example.com/signatures/680123456V",
+        "signature": "https://example.com/signatures/michael@ndx.fl",
         "full_name": "Michael Fernando",
         "residence": "42 Lake View, Eastbrook",
         "relationship_to_baby": "Father",
-        "nic": "680123456V"
+        "nic": "michael@ndx.fl"
       }
     },
     {
@@ -162,14 +162,14 @@
       "is_grandfather_born_in_sri_lanka": false,
       "father": {
         "name": "William Fernando",
-        "nic": "720345678V",
+        "nic": "william@ndx.fl",
         "birth_date": "1983-09-15",
         "birth_place": "Westfield",
         "race": "Citizen"
       },
       "mother": {
         "name": "Laura Fernando",
-        "nic": "770987654V",
+        "nic": "laura@ndx.fl",
         "birth_date": "1986-01-25",
         "birth_place": "Northville",
         "race": "Citizen",
@@ -182,7 +182,7 @@
         "full_name": "Laura Fernando",
         "residence": "14 Hill Street, Westfield",
         "relationship_to_baby": "Mother",
-        "nic": "770987654V"
+        "nic": "laura@ndx.fl"
       }
     }
   ]

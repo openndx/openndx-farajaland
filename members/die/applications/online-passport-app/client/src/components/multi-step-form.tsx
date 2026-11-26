@@ -115,7 +115,7 @@ export function MultiStepForm({ steps, onSubmit, children }: MultiStepFormProps)
         {/* Progress Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-foreground font-sans">Sri Lankan Passport Application</h1>
+            <h1 className="text-2xl font-bold text-foreground font-sans">Farajaland Passport Application</h1>
             <div className="text-sm text-muted-foreground">
               Step {currentStep + 1} of {steps.length}
             </div>

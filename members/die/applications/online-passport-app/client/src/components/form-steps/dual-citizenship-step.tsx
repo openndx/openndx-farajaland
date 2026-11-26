@@ -66,7 +66,7 @@ export function DualCitizenshipStep() {
         </p>
       </div>
 
-      <FormFieldWrapper label="Have you obtained Dual Citizenship in Sri Lanka?" required>
+      <FormFieldWrapper label="Have you obtained Dual Citizenship in Farajaland?" required>
         <RadioGroup
           value={dualCitizenshipData.hasDualCitizenship}
           onValueChange={(value) => handleInputChange("hasDualCitizenship", value)}
@@ -90,7 +90,7 @@ export function DualCitizenshipStep() {
           <FormFieldWrapper
             label="Dual Citizenship Certificate Number"
             required
-            description="Enter your Sri Lankan dual citizenship certificate number"
+            description="Enter your Farajaland dual citizenship certificate number"
           >
             <Input
               placeholder="Enter dual citizenship number"

@@ -127,7 +127,7 @@ export function DocumentUploadStep() {
         {formData["dual-citizenship"]?.hasDualCitizenship === "yes" && (
           <DocumentUpload
             title="Dual Citizenship Certificate"
-            description="Copy of your Sri Lankan dual citizenship certificate"
+            description="Copy of your Farajaland dual citizenship certificate"
             acceptedTypes={["image/jpeg", "image/jpg", "image/png", "application/pdf"]}
             maxSize={10}
             required
