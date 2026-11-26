@@ -72,7 +72,7 @@ cleanup() {
     # Stop member services (they should be killed by the script itself)
     print_info "Member services stopping..."
 
-    # Stop docker-compose services
+    # Stop docker compose services
     print_info "Stopping NDX infrastructure services..."
     
     # Remove volumes based on CLEAN_START environment variable
@@ -80,10 +80,10 @@ cleanup() {
     cd "$NDX_DIR"
     if [ "${CLEAN_START:-true}" = "true" ]; then
         print_info "Removing volumes (set CLEAN_START=false to preserve data)..."
-        docker-compose down -v
+        docker compose down -v
     else
         print_info "Preserving volumes..."
-        docker-compose down
+        docker compose down
     fi
 
     print_success "All services stopped"
@@ -97,6 +97,14 @@ trap 'log_error ${LINENO} "$BASH_COMMAND" $?' ERR
 # Check if docker is running
 if ! docker info > /dev/null 2>&1; then
     print_error "Docker is not running. Please start Docker and try again."
+    exit 1
+fi
+
+# Check that Docker Compose v2 (`docker compose`) is available
+if ! docker compose version > /dev/null 2>&1; then
+    print_error "Docker Compose v2 ('docker compose') is not installed."
+    echo "  - Docker Desktop includes it"
+    echo "  - Linux: install the Compose plugin, see https://docs.docker.com/compose/install/linux/"
     exit 1
 fi
 
@@ -134,7 +142,7 @@ THUNDERID_URL=localhost:${IDP_PORT}
 ISSUER_URL="http://localhost:${IDP_PORT}"
 
 # Start NDX infrastructure services
-print_info "Starting NDX infrastructure services (docker-compose)..."
+print_info "Starting NDX infrastructure services (docker compose)..."
 cd "$NDX_DIR"
 
 if [ ! -f "docker-compose.yml" ]; then
@@ -142,11 +150,11 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Start docker-compose in detached mode
-docker-compose up -d
+# Start docker compose in detached mode
+docker compose up -d
 
 if [ $? -ne 0 ]; then
-    print_error "Failed to start docker-compose services"
+    print_error "Failed to start docker compose services"
     exit 1
 fi
 
@@ -168,7 +176,7 @@ sleep 20
 # Check if postgres is ready
 print_info "Checking PostgreSQL health..."
 for i in {1..30}; do
-    if docker-compose exec -T postgres pg_isready -U exchange > /dev/null 2>&1; then
+    if docker compose exec -T postgres pg_isready -U "${DB_USER:-exchange}" > /dev/null 2>&1; then
         print_success "PostgreSQL is ready"
         break
     fi
@@ -199,7 +207,7 @@ for i in $(seq 1 30); do
     if [ "$i" -eq 30 ]; then
         print_error "ThunderID health check failed after 30 attempts"
         print_error "Please check if the ThunderID containers are running properly:"
-        print_error "  docker-compose -f $NDX_DIR/docker-compose.yml logs thunderid thunderid-setup thunderid-db-init"
+        print_error "  docker compose -f $NDX_DIR/docker-compose.yml logs thunderid thunderid-setup thunderid-db-init"
         print_error ""
         print_error "The script will now exit. Please resolve the issue and try again."
         exit 1
@@ -313,7 +321,7 @@ echo ""
 # needs no network call to the IdP, so the issuer host is only ever compared as a
 # string (claim_validator.issuer.valid_issuers), never dereferenced.
 print_info "Extracting ThunderID signing public key for APISIX token validation..."
-THUNDERID_CID=$(docker-compose ps -q thunderid)
+THUNDERID_CID=$(docker compose ps -q thunderid)
 if [ -z "$THUNDERID_CID" ]; then
     print_error "Could not find the thunderid container to extract its signing key"
     exit 1
