@@ -385,6 +385,31 @@ if [ "$OE_ROUTE_CODE" != "200" ] && [ "$OE_ROUTE_CODE" != "201" ]; then
     exit 1
 fi
 
+# Consumer apps reach the identity provider's token endpoint through the
+# exchange's public entry point, as they would in production. ThunderID's own
+# port stays on this machine (see ndx/docker-compose.yml).
+print_info "Exposing the ThunderID token endpoint through the API gateway"
+TOKEN_ROUTE_CODE=$(jq -n \
+  --arg node "thunderid:${IDP_PORT}" \
+  '{
+    uri: "/oauth2/token",
+    methods: ["POST"],
+    upstream: { type: "roundrobin", nodes: { ($node): 1 } },
+    id: "idp-token-endpoint"
+  }' | curl -s -o /dev/null -w "%{http_code}" \
+    --location --request PUT http://localhost:9180/apisix/admin/routes \
+    --header "Content-Type: application/json" \
+    --header "X-API-KEY: demo-apisix-admin-key" \
+    --data @-)
+
+if [ "$TOKEN_ROUTE_CODE" != "200" ] && [ "$TOKEN_ROUTE_CODE" != "201" ]; then
+    print_error "Failed to register the token endpoint route (HTTP $TOKEN_ROUTE_CODE)"
+    exit 1
+fi
+
+print_success "Token endpoint route registered"
+echo ""
+
 print_info "Exposing Required Consent Engine Endpoints Publicly with OpenID Connect Authentication"
 
 CE_ROUTE_CODE=$(jq -n \

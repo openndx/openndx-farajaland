@@ -417,7 +417,7 @@ type BirthInfo {
 
 **Endpoints**:
 - GraphQL: `http://localhost:8080/graphql`
-- OAuth2 Token: `http://localhost:8080/oauth2/token`
+- OAuth2 Token: `http://localhost:8080/oauth/token`
 - Health Check: `http://localhost:8080/health`
 
 **Location**: `members/civil-registry/data-sources/civil-registry-api/`

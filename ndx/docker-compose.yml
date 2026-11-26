@@ -19,9 +19,10 @@ services:
     # 3.21.0; conf.yaml lists plugins that need a recent APISIX.
     image: apache/apisix:3.21.0-ubuntu
     ports:
-      # The gateway stays reachable on every interface: the passport app runs
-      # outside the NDX network and calls it through host.docker.internal, which
-      # on Linux is the Docker bridge IP rather than loopback.
+      # The exchange's public entry point, on every interface. Consumer apps
+      # reach /public/graphql and /oauth2/token here; the passport app runs
+      # outside the NDX network and calls it through host.docker.internal,
+      # which on Linux is the Docker bridge IP rather than loopback.
       - "9081:9081"
       # The admin API and UI (fixed demo key) are for this machine only.
       - "127.0.0.1:9180:9180"
@@ -108,10 +109,12 @@ services:
       thunderid-setup:
         condition: service_completed_successfully
     ports:
-      # On every interface for the same reason as the gateway's 9081: the
-      # passport app gets its tokens through host.docker.internal. This also
-      # leaves ThunderID's console (demo admin/1234) reachable from the network.
-      - "${IDP_PORT:-8090}:${IDP_PORT:-8090}"
+      # This machine only. The browser signs in here (the issuer is
+      # http://localhost:8090) and init.sh provisions ThunderID through it.
+      # Consumer apps get tokens through the gateway's /oauth2/token route, as
+      # they would in production, so the console (demo admin/1234) and the
+      # management APIs stay off the network.
+      - "127.0.0.1:${IDP_PORT:-8090}:${IDP_PORT:-8090}"
     environment:
       - PUBLIC_URL=${IDP_BASE_URL:-http://localhost:8090}
       - PORT=${IDP_PORT:-8090}

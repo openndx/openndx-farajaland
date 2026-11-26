@@ -68,7 +68,7 @@ setting() {
 setting IDENTITY_REGISTRY_IMAGE ghcr.io/openndx/identity-registry-api:v0.1.0
 setting IDENTITY_REGISTRY_ADAPTER_IMAGE ghcr.io/openndx/identity-registry-adapter:v0.1.0
 setting CIVIL_REGISTRY_IMAGE ghcr.io/openndx/civil-registry-api:v0.1.0
-setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.0
+setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.1
 setting IDENTITY_REGISTRY_BUILD_LOCAL false
 setting IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL false
 setting CIVIL_REGISTRY_BUILD_LOCAL false
@@ -297,17 +297,18 @@ run_passport_app() {
     prepare_image "Online Passport App" "$PASSPORT_APP_DIR" "$PASSPORT_APP_IMAGE" "$PASSPORT_APP_LOCAL_IMAGE" PASSPORT_APP_BUILD_LOCAL
 
     print_step "Starting Online Passport App container..."
-    # This container is NOT on the exchange-network, so it reaches the published
-    # NDX ports via host.docker.internal (the same host alias the orchestration
-    # engine uses for data sources in ndx/config/openndx/oe.yaml). `localhost` here would
-    # mean the container itself, and we no longer detect a host IP.
+    # This container is NOT on the exchange-network. Like any outside consumer it
+    # uses only the exchange's public entry point, the gateway on 9081, for both
+    # its token and its queries. It reaches the gateway via host.docker.internal
+    # (the same host alias the orchestration engine uses for data sources in
+    # ndx/config/openndx/oe.yaml); `localhost` here would mean the container itself.
     docker run -d \
         --name "$PASSPORT_APP_CONTAINER" \
         -p 3000:3000 \
         -e "CLIENT_ID=${M2M_CLIENT_ID}" \
         -e "CLIENT_SECRET=${M2M_CLIENT_SECRET}" \
         -e "NDX_GRAPHQL_API_URL=http://host.docker.internal:9081/public/graphql" \
-        -e "TOKEN_URL=http://host.docker.internal:${IDP_PORT:-8090}/oauth2/token" \
+        -e "TOKEN_URL=http://host.docker.internal:9081/oauth2/token" \
         -e "TOKEN_RESOURCE=http://api.openndx.local" \
         -e "TOKEN_SCOPE=getdata" \
         --add-host=host.docker.internal:host-gateway \
@@ -450,7 +451,7 @@ Settings (read from the environment, then ndx/.env):
   IDENTITY_REGISTRY_IMAGE                Image pulled for the Identity Registry API (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
   IDENTITY_REGISTRY_ADAPTER_IMAGE        Image pulled for the Identity Registry Adapter (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
   CIVIL_REGISTRY_IMAGE                   Image pulled for the Civil Registry API (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
-  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.0)
+  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.1)
 
 Examples:
   $0 identity-registry                      # Run only the Identity Registry API

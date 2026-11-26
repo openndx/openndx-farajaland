@@ -47,14 +47,13 @@ The following are only required if you want to run and modify the data source se
 
 - **RAM**: Minimum 4GB available (8GB recommended)
 - **Disk Space**: At least 10GB free
-- **Ports**: Ensure the following ports are available:
-  - **Core Services**
-    - `4000` - Orchestration Engine
-    - `9081, 9180` - API Gateway (APISIX); the `9180` admin API listens on
-      `127.0.0.1` only
-    - `8090` - FUDI (ThunderID)
+- **Ports**: Ensure the following host ports are available (see
+  [Production Mapping](#production-mapping) for why each is open):
+  - **Exchange**
+    - `9081` - API Gateway (APISIX), the public entry point
+    - `9180` - APISIX admin API, on `127.0.0.1` only
+    - `8090` - FUDI (ThunderID), on `127.0.0.1` only
     - `5173` - Consent Portal (Frontend), on `127.0.0.1` only
-    - `3001` - Audit Service
   - **Member Services**
     - `8080` - Civil Registry API
     - `9090` - Identity Registry API
@@ -184,7 +183,7 @@ Client Secret:
   • Use these credentials to call the publicly exposed endpoints
 
 Token Endpoint:
-http://localhost:8090/oauth2/token
+http://localhost:9081/oauth2/token
 
 Public API Gateway:
 http://localhost:9081/public/*
@@ -325,11 +324,13 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 ```
 
 To call the exchange directly with the default demo client, request OE's resource
-and scope explicitly. If you changed the secrets in `ndx/.env`, load them into your
-shell first with `set -a; . ndx/.env; set +a`:
+and scope explicitly. The token comes from the gateway's `/oauth2/token` route,
+the token endpoint consumer apps use (the passport app calls it too). If you
+changed the secrets in `ndx/.env`, load them into your shell first with
+`set -a; . ndx/.env; set +a`:
 
 ```bash
-NDX_TEST_TOKEN=$(curl -sS http://localhost:8090/oauth2/token \
+NDX_TEST_TOKEN=$(curl -sS http://localhost:9081/oauth2/token \
   -u "passport-app:${PASSPORT_CLIENT_SECRET:-1234}" \
   --data-urlencode 'grant_type=client_credentials' \
   --data-urlencode 'resource=http://api.openndx.local' \
@@ -459,6 +460,20 @@ jq -n --arg pk "$PUBLIC_KEY" '{
     --data @-
 ```
 
+Register the token endpoint route, through which consumer apps get their tokens:
+
+```bash
+jq -n '{
+    uri: "/oauth2/token",
+    methods: ["POST"],
+    upstream: { type: "roundrobin", nodes: { "thunderid:8090": 1 } },
+    id: "idp-token-endpoint"
+  }' | curl --location --request PUT http://localhost:9180/apisix/admin/routes \
+    --header "Content-Type: application/json" \
+    --header "X-API-KEY: demo-apisix-admin-key" \
+    --data @-
+```
+
 > **Why local (public_key) validation instead of JWKS?** With the issuer set to
 > `http://localhost:8090`, the JWKS URL advertised in the discovery document is
 > `http://localhost:8090/oauth2/jwks`, which the APISIX container cannot reach
@@ -493,6 +508,33 @@ cd members/identity-registry/data-sources/identity-registry-adapter
 bal run
 ```
 
+## Production Mapping
+
+The stack opens to your network only what a production deployment makes public.
+In production the public endpoints sit behind the deployer's domain and TLS;
+here they are `localhost` ports.
+
+| Component | In production | Here |
+|---|---|---|
+| Exchange API: the Orchestration Engine's `/public/graphql`, through the gateway | Public, for consumer apps | `http://localhost:9081/public/graphql`, all interfaces |
+| Token endpoint: ThunderID's `/oauth2/token`, through the gateway | Public, for consumer apps (client credentials, token exchange) | `http://localhost:9081/oauth2/token`, all interfaces |
+| Consent API: the Consent Engine's `/api/v1/consents`, through the gateway | Public, called by the Consent Portal in the citizen's browser | `http://localhost:9081/api/v1/consents`, all interfaces |
+| Consent Portal | Public, for citizens | `http://localhost:5173`, this machine only |
+| ThunderID sign-in (authorize, login, discovery, JWKS) | Public, for citizens signing in | `http://localhost:8090`, this machine only |
+| ThunderID console and management APIs | Internal, for operators | `http://localhost:8090`, this machine only |
+| APISIX admin API | Internal | `http://localhost:9180`, this machine only |
+| Audit logs API (`/api/audit-logs`, needs `X-API-Key`) | Internal | Through the gateway on 9081; the audit service is due to be replaced |
+| Orchestration Engine, PDP, Consent Engine, audit service, PostgreSQL | Internal | Docker network only; no host port |
+| Identity Registry and Civil Registry | On each provider's own network, reached by the Orchestration Engine | `9090`, `9091` and `8080` |
+| Passport app | The consumer's own deployment | `http://localhost:3000` |
+
+The Consent Portal and ThunderID's sign-in are public in production but open
+only to this machine here, because their URLs are `localhost` and work only in a
+browser on this machine anyway. A deployment on a domain publishes them under
+that domain. Consumer apps never use ThunderID's own port: the passport app,
+which runs outside the exchange's Docker network like any consumer, gets its
+token and sends its queries through the gateway on 9081.
+
 ## Member Images
 
 `members/run-member-services.sh` (started by `./init.sh`) runs these images,
@@ -505,7 +547,7 @@ locally (below):
 | Identity Registry API | `ghcr.io/openndx/identity-registry-api:v0.1.0` | `members/identity-registry/data-sources/identity-registry-api` |
 | Identity Registry Adapter | `ghcr.io/openndx/identity-registry-adapter:v0.1.0` | `members/identity-registry/data-sources/identity-registry-adapter` |
 | Civil Registry API | `ghcr.io/openndx/civil-registry-api:v0.1.0` | `members/civil-registry/data-sources/civil-registry-api` |
-| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.0` | `members/immigration/applications/online-passport-app` |
+| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.1` | `members/immigration/applications/online-passport-app` |
 
 The mock data and the Identity Registry API's `Config.toml` are mounted from
 this checkout, so editing them needs no new image.
