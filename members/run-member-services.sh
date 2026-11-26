@@ -44,22 +44,9 @@ IDENTITY_REGISTRY_DIR="${SCRIPT_DIR}/identity-registry/data-sources/identity-reg
 IDENTITY_REGISTRY_ADAPTER_DIR="${SCRIPT_DIR}/identity-registry/data-sources/identity-registry-adapter"
 CIVIL_REGISTRY_DIR="${SCRIPT_DIR}/civil-registry/data-sources/civil-registry-api"
 PASSPORT_APP_DIR="${SCRIPT_DIR}/immigration/applications/online-passport-app"
-NDX_ENV_FILE="${SCRIPT_DIR}/../ndx/.env"
 
-# Sets a variable from the environment if it is set there, otherwise from
-# ndx/.env, otherwise to the given default. As in Docker Compose, a quoted
-# value keeps everything between its quotes, and an unquoted value ends at
-# " #" (an inline comment).
-setting() {
-    local name=$1 default=$2 value=""
-    if [ -n "${!name+x}" ]; then
-        value=${!name}
-    elif [ -f "$NDX_ENV_FILE" ]; then
-        value=$(tr -d '\r' < "$NDX_ENV_FILE" | sed -n "s/^${name}=//p" | tail -n 1 |
-            sed -E -e 's/^"([^"]*)".*$/\1/' -e 't' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//')
-    fi
-    printf -v "$name" '%s' "${value:-$default}"
-}
+# setting NAME default: from the environment, then ndx/.env, then the default.
+. "${SCRIPT_DIR}/../scripts/settings.sh"
 
 # Member images. Each service runs its image published to ghcr.io/openndx (for
 # linux/amd64 and linux/arm64, by .github/workflows/release-images.yml) unless

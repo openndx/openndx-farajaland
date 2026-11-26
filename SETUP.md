@@ -100,6 +100,15 @@ The `init.sh` script automates the entire setup process:
 ./init.sh
 ```
 
+**Settings:** `init.sh`, `members/run-member-services.sh` and Docker Compose
+all read `ndx/.env`, so a credential changed there (for example
+`ADMIN_CLI_SECRET`, `GATEWAY_CLIENT_SECRET`, `PASSPORT_CLIENT_SECRET` or
+`MOCK_USER_PASSWORD`) reaches ThunderID, the OpenNDX services and the scripts
+alike. A variable set in your shell overrides `ndx/.env` for one run. Secrets
+may contain characters such as `/`, `&` and `#`; quote a value that contains
+` #`, which otherwise starts a comment. Avoid `$` (Docker Compose expands it)
+and `"` or `\` (ThunderID inserts some secrets into quoted YAML).
+
 **Volume Cleanup Behavior:**
 
 By default, the script removes Docker volumes when you stop it (Ctrl+C). This ensures a fresh start every time and prevents schema mismatch errors.
