@@ -1,10 +1,13 @@
 name: Release member images
 
-# Push a tag named <image>/v<version>, e.g. civil-registry-api/v0.2.0, to publish that
-# image for linux/amd64 and linux/arm64 to ghcr.io/<owner>/<image>:<version>.
+# Push a tag named <image>/v<version>, e.g. civil-registry-api/v0.2.0, to
+# publish that image for linux/amd64 and linux/arm64 to
+# ghcr.io/<owner>/<image>:<version>.
 on:
   push:
     tags:
+      - "identity-registry-api/v*"
+      - "identity-registry-adapter/v*"
       - "civil-registry-api/v*"
       - "online-passport-app/v*"
   workflow_dispatch:
@@ -14,6 +17,8 @@ on:
         required: true
         type: choice
         options:
+          - identity-registry-api
+          - identity-registry-adapter
           - civil-registry-api
           - online-passport-app
       version:
@@ -44,6 +49,8 @@ jobs:
             version="${REF_NAME#*/}"
           fi
           case "$image" in
+            identity-registry-api) context=members/identity-registry/data-sources/identity-registry-api ;;
+            identity-registry-adapter) context=members/identity-registry/data-sources/identity-registry-adapter ;;
             civil-registry-api) context=members/civil-registry/data-sources/civil-registry-api ;;
             online-passport-app) context=members/immigration/applications/online-passport-app ;;
             *) echo "::error::Unknown image: $image"; exit 1 ;;

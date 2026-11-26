@@ -149,22 +149,8 @@ build_image() {
 
     cd "$service_dir"
 
-    # Special handling for Ballerina services
-    if [ -f "Ballerina.toml" ]; then
-        print_info "Building Ballerina project first..."
-        if command -v bal &> /dev/null; then
-            bal build --cloud=docker || {
-                print_error "Ballerina build failed"
-                return 1
-            }
-        else
-            print_error "Ballerina is not installed. Cannot build Ballerina service."
-            print_info "Visit: https://ballerina.io/downloads/"
-            return 1
-        fi
-    fi
-
-    # Build Docker image
+    # Build Docker image. The Ballerina services' Dockerfiles compile the
+    # project inside Docker, so no local Ballerina install is needed.
     docker build -t "$image_name" . || {
         print_error "Docker build failed for $service_name"
         return 1

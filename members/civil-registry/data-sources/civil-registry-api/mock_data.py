@@ -41,7 +41,7 @@ class PersonInfo:
     sex: str
     nic: str
     are_parents_married: bool
-    is_grandfather_born_in_sri_lanka: bool
+    is_grandfather_born_in_country: bool
     father: Father
     mother: Mother
     date_of_registration: date
@@ -60,7 +60,7 @@ class PersonData:
     name: str
     sex: str
     are_parents_married: bool
-    is_grandfather_born_in_sri_lanka: bool
+    is_grandfather_born_in_country: bool
     father: Father
     mother: Mother
     date_of_registration: date
@@ -103,7 +103,12 @@ def _build_person(record: dict) -> PersonData:
         sex=record["sex"],
         nic=strawberry.ID(record["nic"]),
         are_parents_married=record["are_parents_married"],
-        is_grandfather_born_in_sri_lanka=record["is_grandfather_born_in_sri_lanka"],
+        # mock_data.json still uses the old key, because the published
+        # rgd-api:v0.1.0 image reads it from the same mounted file. Accept both
+        # until members/run-member-services.sh runs this image and the key is renamed.
+        is_grandfather_born_in_country=record.get(
+            "is_grandfather_born_in_country", record.get("is_grandfather_born_in_sri_lanka")
+        ),
         father=father,
         mother=mother,
         date_of_registration=date.fromisoformat(record["date_of_registration"]),

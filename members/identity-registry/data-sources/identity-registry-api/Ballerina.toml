@@ -1,8 +1,8 @@
 [package]
 org = "tmp"
-name = "mock_drp"
+name = "identity_registry_api"
 version = "0.1.0"
-distribution = "2201.12.7"
+distribution = "2201.13.1"
 
 [build-options]
 observabilityIncluded = true
