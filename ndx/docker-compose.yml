@@ -282,7 +282,7 @@ services:
     volumes:
       # argus reads its enum config from configs/enums.yaml (relative to its
       # /app workdir) by default - a different path/plural than the old
-      # opendif-core audit-service used. The YAML shape itself (enums:
+      # openndx-core audit-service used. The YAML shape itself (enums:
       # eventTypes/eventActions/actorTypes/targetTypes) already matches
       # argus's own config.AuditEnums, unchanged.
       - ./config/audit/enums.yml:/app/configs/enums.yaml:ro
