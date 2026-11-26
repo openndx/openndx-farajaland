@@ -417,8 +417,8 @@ show_status() {
 
     for container in "$IDENTITY_REGISTRY_CONTAINER" "$IDENTITY_REGISTRY_ADAPTER_CONTAINER" "$CIVIL_REGISTRY_CONTAINER" "$PASSPORT_APP_CONTAINER"; do
         if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-            local status=$(docker inspect -f '{{.State.Status}}' "$container")
-            local uptime=$(docker inspect -f '{{.State.StartedAt}}' "$container")
+            local uptime
+            uptime=$(docker inspect -f '{{.State.StartedAt}}' "$container")
             print_success "$container: Running (since $uptime)"
         else
             print_warning "$container: Not running"
@@ -506,11 +506,15 @@ main() {
             build_all
             ;;
         build-run)
-            # Build every service from this checkout as it starts.
-            IDENTITY_REGISTRY_BUILD_LOCAL=true
-            IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL=true
-            CIVIL_REGISTRY_BUILD_LOCAL=true
-            PASSPORT_APP_BUILD_LOCAL=true
+            # Build every service from this checkout as it starts. prepare_image
+            # reads these settings by name, which shellcheck cannot follow.
+            # shellcheck disable=SC2034
+            {
+                IDENTITY_REGISTRY_BUILD_LOCAL=true
+                IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL=true
+                CIVIL_REGISTRY_BUILD_LOCAL=true
+                PASSPORT_APP_BUILD_LOCAL=true
+            }
             run_all
             ;;
         stop)
