@@ -45,11 +45,13 @@ export function mapPersonInfoToFormData(
   personInfo: PersonInfoData,
   currentNic: string
 ): Partial<PersonalFormData> {
-  // Parse date of birth from ISO format (e.g., "2020-04-03" -> year, month, day)
+  // Parse date of birth from ISO format (e.g., "2020-04-03" -> year, month, day).
+  // The values must match the form's select options: months are zero-padded
+  // ("04"), days are not ("3"), so the day's leading zero is dropped.
   const dobParts = personInfo.dateOfBirth.split('-');
   const year = dobParts[0];
-  const month = dobParts[1]; // Already zero-padded (e.g., "04")
-  const day = dobParts[2];
+  const month = dobParts[1];
+  const day = String(Number.parseInt(dobParts[2], 10));
 
   // Extract surname from fullName
   // Assumption: Last word in fullName is the surname
