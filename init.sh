@@ -28,6 +28,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NDX_DIR="${SCRIPT_DIR}/ndx"
 MEMBERS_DIR="${SCRIPT_DIR}/members"
 
+# Settings shared with Docker Compose, read from ndx/.env (a variable set in the
+# shell overrides it). The secrets must match what Compose gives ThunderID and
+# the OpenNDX services, so this script must not keep its own copies.
+. "${SCRIPT_DIR}/scripts/settings.sh"
+setting IDP_PORT 8090
+setting IDP_ISSUER "http://localhost:${IDP_PORT}"
+setting DB_USER exchange
+setting CONSENT_PORTAL_URL http://localhost:5173
+setting ADMIN_CLI_SECRET 1234
+setting GATEWAY_CLIENT_SECRET 1234
+setting PASSPORT_CLIENT_SECRET 1234
+setting MOCK_USER_PASSWORD 'Abc12#45'
+
 # Function to print colored messages
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -52,7 +65,7 @@ log_error() {
     local exit_code=$3
     print_error "Command failed at line $line_number with exit code $exit_code"
     print_error "Failed command: $command"
-    echo "=== Error occurred at $(date) ===" >> "$LOG_FILE"
+    print_error "Error occurred at $(date)"
 }
 
 # Function to cleanup on exit
@@ -137,13 +150,14 @@ echo ""
 # Initialize Variables. init.sh runs on the host, so it reaches ThunderID at the
 # published localhost:8090 port - no /etc/hosts entry and no host-IP detection are
 # needed for this local-only stack.
-export IDP_PORT="${IDP_PORT:-8090}"
+export IDP_PORT
 THUNDERID_URL=localhost:${IDP_PORT}
 
-# The OIDC issuer is http://localhost:8090 (set in ndx/.env). The browser reaches
-# it directly; consent-engine and OE validate the token `iss` against this
-# string. JWKS is fetched server-side over Docker DNS (thunderid:8090).
-ISSUER_URL="http://localhost:${IDP_PORT}"
+# The OIDC issuer, IDP_ISSUER in ndx/.env (http://localhost:8090). The browser
+# reaches it directly; consent-engine and OE validate the token `iss` against
+# the same value, and APISIX must too. JWKS is fetched server-side over Docker
+# DNS (thunderid:8090).
+ISSUER_URL="$IDP_ISSUER"
 
 # Start NDX infrastructure services
 print_info "Starting NDX infrastructure services (docker compose)..."
@@ -180,7 +194,7 @@ sleep 20
 # Check if postgres is ready
 print_info "Checking PostgreSQL health..."
 for i in {1..30}; do
-    if docker compose exec -T postgres pg_isready -U "${DB_USER:-exchange}" > /dev/null 2>&1; then
+    if docker compose exec -T postgres pg_isready -U "$DB_USER" > /dev/null 2>&1; then
         print_success "PostgreSQL is ready"
         break
     fi
@@ -227,7 +241,6 @@ done
 # for those; the client ids/secrets below just have to agree with those files
 # (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"
-GATEWAY_CLIENT_SECRET="${GATEWAY_CLIENT_SECRET:-1234}"
 CLIENT_ID="$GATEWAY_CLIENT_ID"
 
 PORTAL_CLIENT_ID="CONSENT_PORTAL_APP"
@@ -250,9 +263,8 @@ echo ""
 # not a stand-in for the real (manual, admin-console/API) onboarding flow.
 print_info "Registering the Passport Application data-consumer app..."
 M2M_CLIENT_ID="passport-app"
-M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-1234}"
+M2M_CLIENT_SECRET="$PASSPORT_CLIENT_SECRET"
 
-ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
 # The image-shipped "System" resource server's identifier (see
 # config/thunderid/bootstrap/02-admin-cli.yaml's resourceServerId) - since 1.0.1,
 # ThunderID requires client_credentials token requests to name a target resource
@@ -280,9 +292,15 @@ fi
 # result to ThunderID's /import API using the admin token minted above.
 thunderid_import_resource() {
     local LABEL="$1" YAML_FILE="$2" PLACEHOLDER="$3" VALUE="$4"
-    local RESOLVED IMPORT_PAYLOAD IMPORT_RESPONSE IMPORT_FAILED
+    local RESOLVED YAML_VALUE IMPORT_PAYLOAD IMPORT_RESPONSE IMPORT_FAILED
 
-    RESOLVED=$(sed "s/${PLACEHOLDER}/${VALUE}/" "$YAML_FILE")
+    # Insert the value as literal text, so a secret may contain any character
+    # (sed would treat / and & specially). The placeholders sit inside
+    # double-quoted YAML strings, so backslashes and double quotes are escaped.
+    YAML_VALUE=${VALUE//\\/\\\\}
+    YAML_VALUE=${YAML_VALUE//\"/\\\"}
+    RESOLVED=$(cat "$YAML_FILE")
+    RESOLVED=${RESOLVED//"$PLACEHOLDER"/"$YAML_VALUE"}
     IMPORT_PAYLOAD=$(jq -n --arg content "$RESOLVED" \
       '{content: $content, options: {upsert: true, continueOnError: false, target: "runtime"}}')
     IMPORT_RESPONSE=$(curl --silent -X POST http://"$THUNDERID_URL"/import \
@@ -311,7 +329,6 @@ echo ""
 # than as part of ThunderID's own boot sequence (see
 # config/thunderid/demo-citizens/mock-user.yaml).
 print_info "Registering the demo citizen user..."
-MOCK_USER_PASSWORD="${MOCK_USER_PASSWORD:-Abc12#45}"
 thunderid_import_resource "Demo citizen user (suresh)" \
     "$NDX_DIR/config/thunderid/demo-citizens/mock-user.yaml" \
     "{{ .MOCK_USER_PASSWORD }}" "$MOCK_USER_PASSWORD"
@@ -418,7 +435,7 @@ CE_ROUTE_CODE=$(jq -n \
   --arg client_secret "$GATEWAY_CLIENT_SECRET" \
   --arg discovery "http://thunderid:${IDP_PORT}/.well-known/openid-configuration" \
   --arg issuer "$ISSUER_URL" \
-  --arg cors_origin "${CONSENT_PORTAL_URL:-http://localhost:5173}" \
+  --arg cors_origin "$CONSENT_PORTAL_URL" \
   '{
     uris: ["/api/v1/consents", "/api/v1/consents/*"],
     methods: ["GET", "PUT", "OPTIONS"],
@@ -495,7 +512,7 @@ print_info "Client Secret:    $M2M_CLIENT_SECRET"
 print_success "=========================================="
 echo ""
 print_info "Mock user - Username: suresh"
-print_info "Mock user - Password: ${MOCK_USER_PASSWORD:-Abc12#45}"
+print_info "Mock user - Password: $MOCK_USER_PASSWORD"
 echo ""
 
 # Start member services
@@ -535,7 +552,7 @@ print_info "  URL: http://localhost:3000"
 echo ""
 print_info "Login with the following credentials:"
 print_info "  Username:   suresh"
-print_info "  Password:   Abc12#45"
+print_info "  Password:   $MOCK_USER_PASSWORD"
 echo ""
 print_info "This will allow you to provide consent for the application."
 print_info "=========================================="
