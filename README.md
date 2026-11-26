@@ -9,7 +9,7 @@ The exchange components use [OpenNDX v0.7.0](https://github.com/openndx/openndx-
 For an existing installation, follow the [upgrade instructions](SETUP.md#upgrading-an-existing-environment).
 
 Checked-in credentials are local-demo fixtures. Provider examples use
-`demo-drp-api-key` and `test_client` / `test_secret`; sample tokens and client IDs
+`demo-identity-registry-api-key` and `test_client` / `test_secret`; sample tokens and client IDs
 are intentionally recognizable placeholders.
 
 ## Table of Contents
@@ -31,10 +31,10 @@ The Farajaland NDX ecosystem consists of various member organizations that parti
 - Be **both a provider and consumer** simultaneously
 
 **Current Members**:
-- **RGD (Registrar General's Department)**: Provides birth records and civil registration data
-- **DRP (Department of Registration of Persons)**: Provides personal registration, address, and profession data
-- **DMT (Department of Motor Traffic)**: Will provide vehicle registration data *(coming soon)*
-- **DIE (Department of Immigration and Emigration)**: Consumes data for passport application processing
+- **Civil Registry**: Provides birth records and civil registration data
+- **Identity Registry**: Provides personal registration, address, and profession data
+- **Vehicle Registry**: Will provide vehicle registration data *(coming soon)*
+- **Immigration Department**: Consumes data for passport application processing
 
 **Important Principle**: Member organizations that provide data are **custodians**, not owners. Citizens own their data. This is why consent is required before any data sharing occurs.
 
@@ -58,49 +58,49 @@ The **NDX (National Data Exchange)** is the central infrastructure that:
 
 ## Example: Passport Application via NDX
 
-The **DIE Passport Application** is a registered consumer application in NDX that fetches user-specific data from multiple data providers. Here's how it works when **Suresh**, a citizen of Farajaland, applies for a passport. The application queries NDX to verify several pieces of information about him:
+The Immigration Department's **passport application** is a registered consumer application in NDX that fetches user-specific data from multiple data providers. Here's how it works when **Suresh**, a citizen of Farajaland, applies for a passport. The application queries NDX to verify several pieces of information about him:
 
-- His **full name, birth date, and birth place** - maintained by the **Registrar General's Department (RGD)**
-- His **current address and profession** - maintained by the **Department of Registration of Persons (DRP)**
+- His **full name, birth date, and birth place** - maintained by the **Civil Registry**
+- His **current address and profession** - maintained by the **Identity Registry**
 
 ### The Old Way: Point-to-Point Integration Chaos
 
-Traditionally, DIE would need to:
-1. Integrate directly with RGD's API to fetch birth records
-2. Integrate separately with DRP's API to fetch registration details
+Traditionally, the Immigration Department would need to:
+1. Integrate directly with the Civil Registry's API to fetch birth records
+2. Integrate separately with the Identity Registry's API to fetch registration details
 3. Manage separate authentication credentials for each system
 4. Handle different API formats, versions, and protocols
 5. Build and maintain custom integration code for each department
 6. Update integrations whenever any department changes their API
 
-This creates a tangled web of point-to-point connections. With just 3 departments, there are already 2 integrations to manage. As more departments join (Motor Traffic, Health, Education), the complexity grows exponentially: **N × (N-1) / 2** integration points.
+This creates a tangled web of point-to-point connections. With just 3 departments, there are already 2 integrations to manage. As more departments join (Vehicle Registry, Health, Education), the complexity grows exponentially: **N × (N-1) / 2** integration points.
 
 ### The OpenNDX Way: Federated Data Exchange with Consent
 
-As a **registered application in NDX**, the DIE Passport Application can query user-specific data from multiple providers through a single endpoint:
+As a **registered application in NDX**, the passport application can query user-specific data from multiple providers through a single endpoint:
 
-1. **Suresh logs into the DIE passport application** (registered as an NDX consumer)
+1. **Suresh logs into the passport application** (registered as an NDX consumer)
 2. The application makes a **first data request** to NDX with a GraphQL query for Suresh's user-specific information
 3. **NDX checks for consent** - since Suresh hasn't granted consent yet, NDX doesn't return the data. Instead, it returns a response containing:
    - A **consent portal URL** where Suresh needs to grant permission
    - Details of what data is being requested
-   - Which data providers will be accessed (RGD, DRP)
+   - Which data providers will be accessed (the Civil Registry and the Identity Registry)
 4. The **passport application redirects Suresh** to the consent portal URL
 5. Suresh **authenticates using his FUDI credentials** (Farajaland's national digital identity)
 6. The Consent Portal shows Suresh exactly what data will be shared:
-   - Full name, birth date, and birth place (from RGD)
-   - Current address and profession (from DRP)
-   - Who is requesting the data (DIE)
+   - Full name, birth date, and birth place (from the Civil Registry)
+   - Current address and profession (from the Identity Registry)
+   - Who is requesting the data (the Immigration Department)
    - For what purpose (passport application)
-7. **Suresh grants consent** - he is the data owner, and the departments (RGD, DRP) are merely custodians
+7. **Suresh grants consent** - he is the data owner, and the departments (the Civil Registry and the Identity Registry) are merely custodians
 8. After granting consent, Suresh is **redirected back to the passport application**
-9. The DIE application makes a **second data request** to NDX with the same GraphQL query
+9. The passport application makes a **second data request** to NDX with the same GraphQL query
 10. This time, NDX orchestrates the data retrieval:
     - Verifies Suresh's active consent ✓
     - Checks access policies ✓
-    - Federates the query across RGD and DRP
+    - Federates the query across the Civil Registry and the Identity Registry
     - Aggregates the results
-11. DIE receives a **unified response with all required data**
+11. The passport application receives a **unified response with all required data**
 12. Suresh's passport application is **auto-populated and processed** seamlessly
 
 **The key differences**:
@@ -169,12 +169,12 @@ This section details the member organizations participating in the OpenNDX Faraj
 
 Data providers are custodians of citizen data. They expose their data through standardized APIs that integrate with NDX.
 
-#### DRP - Department of Registration of Persons
+#### Identity Registry
 
 **Technology**: Ballerina (GraphQL Adapter)
-**Port**: 9090
+**Port**: 9091 (the adapter; the REST API it calls is on 9090)
 **Authentication**: API Key (Choreo)
-**Schema ID**: `drp-schema-v1`
+**Schema ID**: `identity-registry-v1`
 
 Provides personal registration data:
 - Full name and other names
@@ -182,16 +182,16 @@ Provides personal registration data:
 - Profession
 - National Identity Card (NIC) details
 
-**Integration Approach**: DRP uses an **adapter pattern**. The underlying DRP system exposes a REST JSON API. The `drp-api-adapter` (built with Ballerina) translates GraphQL queries from NDX into REST calls to the original DRP API, demonstrating how to onboard legacy systems without modification.
+**Integration Approach**: The Identity Registry uses an **adapter pattern**. The underlying Identity Registry system exposes a REST JSON API. The `identity-registry-adapter` (built with Ballerina) translates GraphQL queries from NDX into REST calls to the original Identity Registry API, demonstrating how to onboard legacy systems without modification.
 
-**Location**: `members/drp/data-sources/drp-api-adapter/`
+**Location**: `members/identity-registry/data-sources/identity-registry-adapter/`
 
-#### RGD - Registrar General's Department
+#### Civil Registry
 
 **Technology**: Python (FastAPI)
 **Port**: 8080
 **Authentication**: OAuth2 Client Credentials
-**Schema ID**: `abc-212`
+**Schema ID**: `civil-registry-v1`
 
 Provides birth and civil registration data:
 - Date of birth
@@ -199,13 +199,13 @@ Provides birth and civil registration data:
 - Birth registration number
 - Birth place and district
 
-**Location**: `members/rgd/data-sources/rgd-api/`
+**Location**: `members/civil-registry/data-sources/civil-registry-api/`
 
-#### DMT - Department of Motor Traffic
+#### Vehicle Registry
 
 **Technology**: TBD
 **Status**: Schema defined, implementation pending
-**Schema ID**: `dmt-schema-v1`
+**Schema ID**: `vehicle-registry-v1`
 
 Will provide vehicle registration data:
 - Registered vehicles by owner NIC
@@ -213,25 +213,25 @@ Will provide vehicle registration data:
 - Registration numbers
 - Vehicle classifications
 
-**Location**: `members/dmt/` (to be implemented)
+**Location**: `members/vehicle-registry/` (to be implemented)
 
 ### Data Consumers
 
 Data consumers are organizations that use federated data from multiple providers to deliver services to citizens.
 
-#### DIE - Department of Immigration and Emigration
+#### Immigration Department
 
 **Role**: Data Consumer
 **Primary Application**: Passport Application System
-**Status**: Reference implementation (to be implemented)
+**Status**: Reference implementation (React + Vite frontend, Express backend)
 
-The DIE consumes data from multiple providers to process passport applications:
-- Fetches citizen identity and birth information from RGD
-- Fetches current address and profession from DRP
+The Immigration Department consumes data from multiple providers to process passport applications:
+- Fetches citizen identity and birth information from the Civil Registry
+- Fetches current address and profession from the Identity Registry
 - Uses NDX for federated data access with citizen consent
 - Implements the consent flow for citizen authorization
 
-**Location**: `members/die/applications/passport-app/` (planned)
+**Location**: `members/immigration/applications/online-passport-app/`
 
 **Integration Pattern**:
 1. Redirects citizens to the NDX Consent Portal
@@ -245,8 +245,8 @@ The DIE consumes data from multiple providers to process passport applications:
 
 ### Authentication Methods
 
-1. **OAuth2 Client Credentials**: For service-to-service authentication (e.g., RGD)
-2. **API Keys**: For simpler authenticated access (e.g., DRP via Choreo)
+1. **OAuth2 Client Credentials**: For service-to-service authentication (e.g., the Civil Registry)
+2. **API Keys**: For simpler authenticated access (e.g., the Identity Registry via Choreo)
 3. **JWT Tokens**: For user authentication (future implementation with ThunderID)
 
 ### Consent Management

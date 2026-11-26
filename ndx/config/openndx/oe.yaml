@@ -33,29 +33,29 @@ audit:
 
 # Keep the IDs already registered in the seeded database and policy grants.
 providers:
-  - id: drp-schema-v1
+  - id: identity-registry-v1
     url: http://host.docker.internal:9091
     auth:
       type: apiKey
       apiKey:
         key: Choreo-API-Key
-        value: "{{env:DRP_API_KEY}}"
-  - id: abc-212
+        value: "{{env:IDENTITY_REGISTRY_API_KEY}}"
+  - id: civil-registry-v1
     url: http://host.docker.internal:8080/graphql
     auth:
       type: oauth2
       oauth2:
         tokenURL: http://host.docker.internal:8080/oauth/token
-        clientID: "{{env:RGD_CLIENT_ID}}"
-        clientSecret: "{{env:RGD_CLIENT_SECRET}}"
+        clientID: "{{env:CIVIL_REGISTRY_CLIENT_ID}}"
+        clientSecret: "{{env:CIVIL_REGISTRY_CLIENT_SECRET}}"
 
 argMappings:
-  - schemaId: drp-schema-v1
+  - schemaId: identity-registry-v1
     targetArgName: nic
     sourceArgPath: personInfo-nic
     targetArgPath: person
     targetArgType: "ID!"
-  - schemaId: abc-212
+  - schemaId: civil-registry-v1
     targetArgName: nic
     sourceArgPath: personInfo-nic
     targetArgPath: getPersonInfo

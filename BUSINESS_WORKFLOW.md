@@ -4,13 +4,13 @@ This document provides a detailed walkthrough of the complete business workflow 
 
 ## Overview
 
-This workflow illustrates the end-to-end process of how the **Department of Immigration and Emigration (DIE)** accesses citizen data from multiple government departments (**RGD** and **DRP**) through the **NDX (National Data Exchange)** with explicit citizen consent.
+This workflow illustrates the end-to-end process of how the **Immigration Department** accesses citizen data from multiple government departments (the **Civil Registry** and the **Identity Registry**) through the **NDX (National Data Exchange)** with explicit citizen consent.
 
 **Key Participants**:
 - **Suresh**: Citizen applying for a passport
-- **DIE**: Department of Immigration and Emigration (Data Consumer)
-- **RGD**: Registrar General's Department (Data Provider - birth records)
-- **DRP**: Department of Registration of Persons (Data Provider - personal registration)
+- **Immigration Department**: Data Consumer (passport application)
+- **Civil Registry**: Data Provider (birth records)
+- **Identity Registry**: Data Provider (personal registration)
 - **NDX**: National Data Exchange (Orchestration layer)
 - **FUDI**: Farajaland Unique Digital Identity (Identity provider)
 
@@ -20,7 +20,7 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 
 ### Step 1: Application Initiation
 
-- Suresh navigates to the DIE passport application portal
+- Suresh navigates to the Immigration Department's passport application portal
 - He logs into the passport application
 - He starts a new passport application
 
@@ -33,11 +33,11 @@ This workflow illustrates the end-to-end process of how the **Department of Immi
 ### Step 2: First Data Request (Consent Check)
 
 **Actions**:
-- The DIE application identifies required data fields:
-  - `fullName`, `dateOfBirth`, `birthPlace` (from RGD)
-  - `address`, `profession` (from DRP)
-- DIE makes a **first GraphQL query** to NDX requesting Suresh's data
-- **NDX checks the Consent Engine** for Suresh's active consent for DIE
+- The passport application identifies required data fields:
+  - `fullName`, `dateOfBirth`, `birthPlace` (from the Civil Registry)
+  - `address`, `profession` (from the Identity Registry)
+- The passport application makes a **first GraphQL query** to NDX requesting Suresh's data
+- **NDX checks the Consent Engine** for Suresh's active consent for the passport application
 
 **Technical Details**:
 ```graphql
@@ -67,9 +67,9 @@ Since Suresh hasn't granted consent yet, NDX responds with:
   "consentPortalUrl": "https://consent.ndx.gov.fl/consent?session=abc123...",
   "requestedData": {
     "fields": ["fullName", "dateOfBirth", "birthPlace", "address", "profession"],
-    "providers": ["RGD", "DRP"]
+    "providers": ["civil-registry-v1", "identity-registry-v1"]
   },
-  "consumer": "DIE",
+  "consumer": "passport-app",
   "purpose": "Passport Application Processing"
 }
 ```
@@ -78,7 +78,7 @@ Since Suresh hasn't granted consent yet, NDX responds with:
 - **Status**: Consent required
 - **Consent Portal URL**: Where Suresh needs to grant permission
 - **Data request details**: What fields are being requested
-- **Provider information**: Which data providers will be accessed (RGD, DRP)
+- **Provider information**: Which data providers will be accessed (the Civil Registry and the Identity Registry)
 - **No data is returned** at this stage
 
 **Why this matters**: The consent portal URL is dynamically generated and includes the session context. This ensures the consent is tied to this specific data request.
@@ -89,7 +89,7 @@ Since Suresh hasn't granted consent yet, NDX responds with:
 
 **Actions**:
 - The passport application **redirects Suresh** to the consent portal URL from the response
-- The URL contains parameters identifying the data consumer (DIE) and requested data scope
+- The URL contains parameters identifying the data consumer (the passport application) and requested data scope
 
 **User Experience**:
 - Suresh's browser navigates to the consent portal
@@ -125,34 +125,34 @@ Since Suresh hasn't granted consent yet, NDX responds with:
 The Consent Portal displays a detailed consent request:
 
 **Displayed Information**:
-- **Who is requesting**: Department of Immigration and Emigration
+- **Who is requesting**: The Immigration Department
 - **What data is needed**: Full name, date of birth, birth place, address, profession
-- **From which sources**: RGD (birth records), DRP (registration data)
+- **From which sources**: Civil Registry (birth records), Identity Registry (registration data)
 - **For what purpose**: Passport application processing
 - **For how long**: Consent validity period (e.g., 30 days)
 
 **Consent Screen Elements**:
 ```
-╔═══════════════════════════════════════════════════════════╗
+╔════════════════════════════════════════════════════════════╗
 ║                    Data Sharing Consent                    ║
-╠═══════════════════════════════════════════════════════════╣
+╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
-║  Department of Immigration and Emigration (DIE)           ║
+║  Immigration Department                                    ║
 ║  is requesting access to your information                  ║
 ║                                                            ║
 ║  DATA TO BE SHARED:                                        ║
-║  ✓ Full Name (from RGD)                                   ║
-║  ✓ Date of Birth (from RGD)                               ║
-║  ✓ Birth Place (from RGD)                                 ║
-║  ✓ Current Address (from DRP)                             ║
-║  ✓ Profession (from DRP)                                  ║
+║  ✓ Full Name (from Civil Registry)                         ║
+║  ✓ Date of Birth (from Civil Registry)                     ║
+║  ✓ Birth Place (from Civil Registry)                       ║
+║  ✓ Current Address (from Identity Registry)                ║
+║  ✓ Profession (from Identity Registry)                     ║
 ║                                                            ║
-║  PURPOSE: Passport Application Processing                 ║
-║  VALID FOR: 30 days                                       ║
+║  PURPOSE: Passport Application Processing                  ║
+║  VALID FOR: 30 days                                        ║
 ║                                                            ║
-║  [ Grant Consent ]  [ Deny ]  [ Learn More ]             ║
+║  [ Grant Consent ]  [ Deny ]  [ Learn More ]               ║
 ║                                                            ║
-╚═══════════════════════════════════════════════════════════╝
+╚════════════════════════════════════════════════════════════╝
 ```
 
 **Citizen Actions**:
@@ -221,19 +221,19 @@ query {
 This time, NDX performs the complete orchestration:
 
 #### 9.1 Consent Verification
-- ✓ Suresh has active consent for DIE
+- ✓ Suresh has active consent for the passport application
 - ✓ Consent scope includes all requested fields
 - ✓ Consent has not expired
 
 #### 9.2 Policy Check
-- ✓ DIE has authorization to access this data
-- ✓ DIE's access policies allow passport application processing
+- ✓ The passport application has authorization to access this data
+- ✓ The passport application's access policies allow passport application processing
 - ✓ No data access restrictions are violated
 
 #### 9.3 Query Federation
 NDX splits the query into sub-queries based on data source mapping:
 
-**Sub-query to RGD**:
+**Sub-query to the Civil Registry**:
 ```graphql
 query {
   getPersonInfo(nic: "suresh@ndx.fl") {
@@ -244,7 +244,7 @@ query {
 }
 ```
 
-**Sub-query to DRP** (via Adapter):
+**Sub-query to the Identity Registry** (via Adapter):
 ```graphql
 query {
   person(nic: "suresh@ndx.fl") {
@@ -255,18 +255,18 @@ query {
 }
 ```
 
-The DRP adapter translates this to a REST call:
+The Identity Registry adapter translates this to a REST call:
 ```http
 GET /api/person/suresh@ndx.fl
 ```
 
 #### 9.4 Authentication
 NDX authenticates to each data provider:
-- **RGD**: OAuth2 Client Credentials flow
-- **DRP Adapter**: API Key authentication (Choreo)
+- **Civil Registry**: OAuth2 Client Credentials flow
+- **Identity Registry adapter**: API Key authentication (Choreo)
 
 #### 9.5 Data Retrieval
-**From RGD**:
+**From the Civil Registry**:
 ```json
 {
   "fullName": "Suresh Fernando",
@@ -275,7 +275,7 @@ NDX authenticates to each data provider:
 }
 ```
 
-**From DRP** (via adapter):
+**From the Identity Registry** (via adapter):
 ```json
 {
   "fullName": "Suresh Fernando",
@@ -306,10 +306,10 @@ NDX records the data access event:
 {
   "timestamp": "2025-11-27T14:23:45Z",
   "citizen": "suresh@ndx.fl",
-  "consumer": "DIE",
+  "consumer": "passport-app",
   "purpose": "Passport Application",
   "dataAccessed": ["fullName", "dateOfBirth", "birthPlace", "address", "profession"],
-  "sources": ["RGD", "DRP"],
+  "sources": ["civil-registry-v1", "identity-registry-v1"],
   "consentId": "consent_abc123",
   "status": "SUCCESS"
 }
@@ -320,7 +320,7 @@ NDX records the data access event:
 ### Step 10: Data Response & Application Processing
 
 **Actions**:
-- DIE receives the **complete data set in a single response**
+- The passport application receives the **complete data set in a single response**
 - The passport application is **auto-populated** with Suresh's verified information
 - Suresh reviews the pre-filled form
 - Suresh submits his passport application
@@ -382,12 +382,12 @@ NDX records the data access event:
 
 ---
 
-### For Data Consumers (DIE)
+### For Data Consumers (Immigration Department)
 
 **Simplicity**:
 - Single API endpoint instead of multiple integrations
 - One GraphQL query retrieves data from multiple sources
-- No need to maintain separate integrations with RGD and DRP
+- No need to maintain separate integrations with the Civil Registry and the Identity Registry
 
 **Reliability**:
 - Standardized data format (GraphQL)
@@ -408,7 +408,7 @@ NDX records the data access event:
 
 ---
 
-### For Data Providers (RGD, DRP)
+### For Data Providers (Civil Registry, Identity Registry)
 
 **Sovereignty**:
 - Maintain control over their data
@@ -472,7 +472,7 @@ Access is governed by policies:
 
 ### Scenario 1: Consent Already Granted
 
-If Suresh has previously granted consent to DIE (and it hasn't expired):
+If Suresh has previously granted consent to the passport application (and it hasn't expired):
 
 1. Application Initiation (same as Step 1)
 2. **First Data Request** → NDX finds valid consent → **Data returned immediately**
@@ -512,47 +512,48 @@ If NDX supports granular consent, Suresh could grant access to some fields but n
 ## Technical Flow Diagram
 
 ```
-┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│ Suresh  │     │   DIE   │     │   NDX   │     │  FUDI   │     │RGD/DRP  │
-└────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘
-     │               │               │               │               │
-     │ 1. Start App  │               │               │               │
-     ├──────────────>│               │               │               │
-     │               │ 2. Query      │               │               │
-     │               ├──────────────>│               │               │
-     │               │               │ 3. Check      │               │
-     │               │               │   Consent     │               │
-     │               │<──────────────┤               │               │
-     │               │ (Consent URL) │               │               │
-     │ 4. Redirect   │               │               │               │
-     │<──────────────┤               │               │               │
-     │               │               │               │               │
-     │ 5. Authenticate                │               │               │
-     ├───────────────────────────────────────────────>│               │
-     │<──────────────────────────────────────────────┤               │
-     │               │               │               │               │
-     │ 6. Grant Consent               │               │               │
-     ├──────────────────────────────>│               │               │
-     │               │               │ (Save Consent)│               │
-     │               │               │               │               │
-     │ 7. Redirect   │               │               │               │
-     │<──────────────┤               │               │               │
-     ├──────────────>│               │               │               │
-     │               │ 8. Query      │               │               │
-     │               │   (2nd time)  │               │               │
-     │               ├──────────────>│               │               │
-     │               │               │ 9. Federate   │               │
-     │               │               ├──────────────────────────────>│
-     │               │               │<──────────────────────────────┤
-     │               │<──────────────┤               │               │
-     │               │ (Data)        │               │               │
-     │               │               │               │               │
-     │ 10. Review    │               │               │               │
-     │<──────────────┤               │               │               │
-     │               │               │               │               │
-     │ Submit        │               │               │               │
-     ├──────────────>│               │               │               │
-     │               │               │               │               │
+┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌───────────────────┐
+│ Suresh  │     │Passport │     │   NDX   │     │  FUDI   │     │  Civil Registry   │
+│         │     │   App   │     │         │     │         │     │ Identity Registry │
+└────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘     └─────────┬─────────┘
+     │               │               │               │                    │
+     │ 1. Start App  │               │               │                    │
+     ├──────────────>│               │               │                    │
+     │               │ 2. Query      │               │                    │
+     │               ├──────────────>│               │                    │
+     │               │               │ 3. Check      │                    │
+     │               │               │   Consent     │                    │
+     │               │<──────────────┤               │                    │
+     │               │ (Consent URL) │               │                    │
+     │ 4. Redirect   │               │               │                    │
+     │<──────────────┤               │               │                    │
+     │               │               │               │                    │
+     │ 5. Authenticate               │               │                    │
+     ├──────────────────────────────────────────────>│                    │
+     │<──────────────────────────────────────────────┤                    │
+     │               │               │               │                    │
+     │ 6. Grant Consent              │               │                    │
+     ├──────────────────────────────>│               │                    │
+     │               │               │ (Save Consent)│                    │
+     │               │               │               │                    │
+     │ 7. Redirect   │               │               │                    │
+     │<──────────────┤               │               │                    │
+     ├──────────────>│               │               │                    │
+     │               │ 8. Query      │               │                    │
+     │               │   (2nd time)  │               │                    │
+     │               ├──────────────>│               │                    │
+     │               │               │ 9. Federate   │                    │
+     │               │               ├───────────────────────────────────>│
+     │               │               │<───────────────────────────────────┤
+     │               │<──────────────┤               │                    │
+     │               │ (Data)        │               │                    │
+     │               │               │               │                    │
+     │ 10. Review    │               │               │                    │
+     │<──────────────┤               │               │                    │
+     │               │               │               │                    │
+     │ Submit        │               │               │                    │
+     ├──────────────>│               │               │                    │
+     │               │               │               │                    │
 ```
 
 ---

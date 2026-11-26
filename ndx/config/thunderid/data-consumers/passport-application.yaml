@@ -19,7 +19,7 @@
 # actually be onboarded. A follow-up PR will document that manual flow
 # (registering an application through ThunderID's admin API/console).
 #
-# Used by members/run-member-services.sh (the `die` service) to call the
+# Used by members/run-member-services.sh (the `passport-app` service) to call the
 # federated GraphQL API via the APISIX public route as a data-consuming
 # application. {{ .PASSPORT_CLIENT_SECRET }} is resolved from the environment
 # by init.sh before this file is POSTed to /import (see there); it's not

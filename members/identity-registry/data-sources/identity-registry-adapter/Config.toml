@@ -1,0 +1,12 @@
+# Configuration for the Identity Registry Adapter
+
+# Port for the GraphQL service to listen on.
+port = 9091
+
+# URL of the Identity Registry API.
+# If not provided, it will fall back to the CHOREO_MOCK_DRP_CONNECTION_SERVICEURL environment variable.
+serviceURL = "http://localhost:9090"
+
+# API key for authenticating with the Identity Registry API.
+# If not provided, it will fall back to the CHOREO_MOCK_DRP_CONNECTION_APIKEY environment variable.
+choreoApiKey = "your-api-key"

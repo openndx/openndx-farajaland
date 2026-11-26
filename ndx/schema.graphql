@@ -1,4 +1,5 @@
-# DRP and RGD are active. Add a configured provider before exposing DMT fields.
+# The Identity Registry and Civil Registry providers are active. Configure a
+# Vehicle Registry provider before exposing vehicle fields.
 directive @deprecated(
     reason: String = "No longer supported"
 ) on FIELD_DEFINITION | ENUM_VALUE
@@ -13,18 +14,18 @@ type Query {
 }
 
 type PersonInfo {
-    fullName: String @sourceInfo(schemaId: "drp-schema-v1", providerField: "person.fullName")
-    name: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.name")
-    otherNames: String @sourceInfo(schemaId: "drp-schema-v1", providerField: "person.otherNames")
-    address: String @sourceInfo(schemaId: "drp-schema-v1", providerField: "person.permanentAddress")
-    profession: String @sourceInfo(schemaId: "drp-schema-v1", providerField: "person.profession")
-    dateOfBirth: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.birthDate")
-    sex: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.sex")
+    fullName: String @sourceInfo(schemaId: "identity-registry-v1", providerField: "person.fullName")
+    name: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.name")
+    otherNames: String @sourceInfo(schemaId: "identity-registry-v1", providerField: "person.otherNames")
+    address: String @sourceInfo(schemaId: "identity-registry-v1", providerField: "person.permanentAddress")
+    profession: String @sourceInfo(schemaId: "identity-registry-v1", providerField: "person.profession")
+    dateOfBirth: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.birthDate")
+    sex: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.sex")
     birthInfo: BirthInfo
 }
 
 type BirthInfo {
-    birthRegistrationNumber: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.brNo")
-    birthPlace: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.birthPlace")
-    district: String @sourceInfo(schemaId: "abc-212", providerField: "getPersonInfo.district")
+    birthRegistrationNumber: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.brNo")
+    birthPlace: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.birthPlace")
+    district: String @sourceInfo(schemaId: "civil-registry-v1", providerField: "getPersonInfo.district")
 }

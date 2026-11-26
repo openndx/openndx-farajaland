@@ -19,16 +19,16 @@ CREATE TEMP TABLE demo_fields (
 ) ON COMMIT DROP;
 
 INSERT INTO demo_fields (schema_id, field_name, display_name, description) VALUES
-    ('abc-212', 'getPersonInfo.name', 'Person''s Name', NULL),
-    ('abc-212', 'getPersonInfo.sex', 'Person''s Sex', NULL),
-    ('abc-212', 'getPersonInfo.birthDate', 'Birth Date', 'Person''s Birth Date'),
-    ('abc-212', 'getPersonInfo.birthPlace', 'Birth Place of Person', NULL),
-    ('abc-212', 'getPersonInfo.district', 'Birth District of Person', NULL),
-    ('abc-212', 'getPersonInfo.brNo', 'Birth Registration Number', NULL),
-    ('drp-schema-v1', 'person.fullName', 'Full Name', 'Person''s Full Name'),
-    ('drp-schema-v1', 'person.otherNames', 'Person''s Other Names', NULL),
-    ('drp-schema-v1', 'person.permanentAddress', 'Residing Address', 'Person''s Residential Address'),
-    ('drp-schema-v1', 'person.profession', 'Your Profession', NULL);
+    ('civil-registry-v1', 'getPersonInfo.name', 'Person''s Name', NULL),
+    ('civil-registry-v1', 'getPersonInfo.sex', 'Person''s Sex', NULL),
+    ('civil-registry-v1', 'getPersonInfo.birthDate', 'Birth Date', 'Person''s Birth Date'),
+    ('civil-registry-v1', 'getPersonInfo.birthPlace', 'Birth Place of Person', NULL),
+    ('civil-registry-v1', 'getPersonInfo.district', 'Birth District of Person', NULL),
+    ('civil-registry-v1', 'getPersonInfo.brNo', 'Birth Registration Number', NULL),
+    ('identity-registry-v1', 'person.fullName', 'Full Name', 'Person''s Full Name'),
+    ('identity-registry-v1', 'person.otherNames', 'Person''s Other Names', NULL),
+    ('identity-registry-v1', 'person.permanentAddress', 'Residing Address', 'Person''s Residential Address'),
+    ('identity-registry-v1', 'person.profession', 'Your Profession', NULL);
 
 -- Each field needs an allow-list grant and the citizen's consent.
 INSERT INTO field_policies
