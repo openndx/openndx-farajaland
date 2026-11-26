@@ -69,8 +69,12 @@ cleanup() {
 
     print_info "Stopping all services..."
 
-    # Stop member services (they should be killed by the script itself)
-    print_info "Member services stopping..."
+    # run-member-services.sh starts the member services with `docker run`,
+    # outside Compose, so `docker compose down` below leaves them running.
+    # A failure here must not skip the Compose teardown.
+    print_info "Stopping member services..."
+    bash "$MEMBERS_DIR/run-member-services.sh" stop ||
+        print_warning "Could not stop the member services. Run ./members/run-member-services.sh stop"
 
     # Stop docker compose services
     print_info "Stopping NDX infrastructure services..."
