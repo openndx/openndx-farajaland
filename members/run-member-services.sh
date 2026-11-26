@@ -38,22 +38,16 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Docker image configuration
-DOCKER_REGISTRY="${DOCKER_REGISTRY:-docker.io}"
-IMAGE_PREFIX="${IMAGE_PREFIX:-mushrafmim}"
-# The Identity Registry API and Adapter images are published as v0.1.0.
-IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
-# The Civil Registry API is released to GHCR by .github/workflows/release-images.yml.
-CIVIL_REGISTRY_IMAGE="${CIVIL_REGISTRY_IMAGE:-ghcr.io/openndx/rgd-api:v0.1.0}"
-# Build the passport app from this checkout so its OAuth resource request
-# matches OE v0.7.0. Set PASSPORT_APP_BUILD_LOCAL=false to use a compatible published image.
-PASSPORT_APP_IMAGE_TAG="${PASSPORT_APP_IMAGE_TAG:-openndx-0.7.0-local}"
-PASSPORT_APP_BUILD_LOCAL="${PASSPORT_APP_BUILD_LOCAL:-true}"
-
-# Image names
-IDENTITY_REGISTRY_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api:${IMAGE_TAG}"
-IDENTITY_REGISTRY_ADAPTER_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/drp-api-adapter:${IMAGE_TAG}"
-PASSPORT_APP_IMAGE="${DOCKER_REGISTRY}/${IMAGE_PREFIX}/online-passport-app:${PASSPORT_APP_IMAGE_TAG}"
+# Member images, published for linux/amd64 and linux/arm64 by
+# .github/workflows/release-images.yml. Override any of them to run another
+# version or a build from another registry.
+IDENTITY_REGISTRY_IMAGE="${IDENTITY_REGISTRY_IMAGE:-ghcr.io/openndx/identity-registry-api:v0.1.0}"
+IDENTITY_REGISTRY_ADAPTER_IMAGE="${IDENTITY_REGISTRY_ADAPTER_IMAGE:-ghcr.io/openndx/identity-registry-adapter:v0.1.0}"
+CIVIL_REGISTRY_IMAGE="${CIVIL_REGISTRY_IMAGE:-ghcr.io/openndx/civil-registry-api:v0.1.0}"
+PASSPORT_APP_IMAGE="${PASSPORT_APP_IMAGE:-ghcr.io/openndx/online-passport-app:v0.1.0}"
+# Set to true to build the passport app from this checkout instead of pulling
+# its published image, e.g. while changing the app.
+PASSPORT_APP_BUILD_LOCAL="${PASSPORT_APP_BUILD_LOCAL:-false}"
 
 # Container names
 IDENTITY_REGISTRY_CONTAINER="identity-registry-api"
@@ -218,9 +212,9 @@ run_identity_registry_adapter() {
     docker run -d \
         --name "$IDENTITY_REGISTRY_ADAPTER_CONTAINER" \
         -p 9091:9091 \
-        -e "CHOREO_MOCK_DRP_CONNECTION_SERVICEURL=http://host.docker.internal:9090" \
-        -e "CHOREO_MOCK_DRP_CONNECTION_APIKEY=your-api-key" \
-        -e "PORT=9091" \
+        -e "BAL_CONFIG_VAR_SERVICEURL=http://host.docker.internal:9090" \
+        -e "BAL_CONFIG_VAR_CHOREOAPIKEY=your-api-key" \
+        -e "BAL_CONFIG_VAR_PORT=9091" \
         --restart unless-stopped \
         "$IDENTITY_REGISTRY_ADAPTER_IMAGE"
 
@@ -435,12 +429,11 @@ Commands:
   help                       Show this help message
 
 Environment Variables:
-  DOCKER_REGISTRY           Docker registry to use (default: docker.io)
-  IMAGE_PREFIX              Image prefix/namespace (default: mushrafmim)
-  IMAGE_TAG                 Tag for the Identity Registry API and Adapter images (default: v0.1.0)
-  CIVIL_REGISTRY_IMAGE      Full Civil Registry API image reference (default: ghcr.io/openndx/rgd-api:v0.1.0)
-  PASSPORT_APP_IMAGE_TAG    Tag for the passport app image (default: openndx-0.7.0-local)
-  PASSPORT_APP_BUILD_LOCAL  Build the passport app from this checkout (default: true)
+  IDENTITY_REGISTRY_IMAGE          Identity Registry API image (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
+  IDENTITY_REGISTRY_ADAPTER_IMAGE  Identity Registry Adapter image (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
+  CIVIL_REGISTRY_IMAGE             Civil Registry API image (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
+  PASSPORT_APP_IMAGE               Passport app image (default: ghcr.io/openndx/online-passport-app:v0.1.0)
+  PASSPORT_APP_BUILD_LOCAL         Build the passport app from this checkout instead of pulling it (default: false)
 
 Examples:
   $0 identity-registry                      # Run only the Identity Registry API
@@ -448,8 +441,8 @@ Examples:
   $0 build                                  # Build all images locally
   $0 build-run                              # Build and run all services
   $0 stop                                   # Stop all services
-  IMAGE_TAG=v1.0.0 $0 all                   # Run all services with tag v1.0.0
-  IMAGE_PREFIX=myorg $0 all                 # Use custom image prefix
+  PASSPORT_APP_BUILD_LOCAL=true $0 all      # Run all services, building the passport app from this checkout
+  CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.2.0 $0 civil-registry  # Run another version
 
 Service Information:
   Identity Registry API:      Mock identity registry REST API (Ballerina)
