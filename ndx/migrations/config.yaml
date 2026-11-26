@@ -1,0 +1,13 @@
+# Connection settings for the migrate tool (OpenNSW/agency cmd/migrate).
+# run.sh runs it once per service, setting MIGRATE_DB_NAME and MIGRATE_DIR to
+# that service's database and migrations folder.
+db:
+  driver: postgres
+  postgres:
+    host: "{{env:DB_HOST}}"
+    port: "{{env:DB_PORT}}"
+    user: "{{env:DB_USER}}"
+    password: "{{env:DB_PASSWORD}}"
+    name: "{{env:MIGRATE_DB_NAME}}"
+    sslMode: "{{env:DB_SSLMODE}}"
+migrationDir: "{{env:MIGRATE_DIR}}"

@@ -132,8 +132,8 @@ services:
 
   policy-decision-point:
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     image: ghcr.io/openndx/policy-decision-point:0.7.0
     platform: linux/amd64
     container_name: pdp-${ENVIRONMENT:-local}
@@ -145,7 +145,7 @@ services:
       - DB_PORT=${PDP_DB_PORT:-5432}
       - DB_USER=${DB_USER:-exchange}
       - DB_PASSWORD=${DB_PASSWORD:-exchange}
-      - DB_NAME=${PDP_DB_NAME:-testdb}
+      - DB_NAME=${PDP_DB_NAME:-pdp_db}
       - DB_SSLMODE=${DB_SSLMODE:-require}
     volumes:
       - ./config/openndx/pdp.yaml:/app/config/config.yaml:ro
@@ -161,8 +161,8 @@ services:
 
   consent-engine:
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       thunderid:
         condition: service_healthy
     image: ghcr.io/openndx/consent-engine:0.7.0
@@ -176,7 +176,7 @@ services:
       - DB_PORT=${CE_DB_PORT:-5432}
       - DB_USER=${DB_USER:-exchange}
       - DB_PASSWORD=${DB_PASSWORD:-exchange}
-      - DB_NAME=${CE_DB_NAME:-consent_engine}
+      - DB_NAME=${CE_DB_NAME:-ce_db}
       - DB_SSLMODE=${DB_SSLMODE:-require}
       - CONSENT_PORTAL_URL=${CONSENT_PORTAL_URL:-http://localhost:5173}
       - IDP_ISSUER=${IDP_ISSUER:-http://localhost:8090}
@@ -266,7 +266,8 @@ services:
     platform: linux/amd64
     container_name: audit-${ENVIRONMENT:-local}
     depends_on:
-      - postgres
+      migrate:
+        condition: service_completed_successfully
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-local}
       - PORT=3001
@@ -275,7 +276,7 @@ services:
       - DB_PORT=${AUDIT_DB_PORT:-5432}
       - DB_USERNAME=${DB_USER:-exchange}
       - DB_PASSWORD=${DB_PASSWORD:-exchange}
-      - DB_NAME=audit_db
+      - DB_NAME=${AUDIT_DB_NAME:-audit_db}
       # Fail-closed API key auth - must match orchestration-engine's
       # audit.apiKey in config/openndx/oe.yaml.
       - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
@@ -296,20 +297,17 @@ services:
       - exchange-network
     restart: unless-stopped
 
+  # One database per service (PDP, CE, audit), each created by `migrate`.
   postgres:
     image: postgres:15
     container_name: pg-${ENVIRONMENT:-local}
     environment:
       POSTGRES_USER: ${DB_USER:-exchange}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-exchange}
-      POSTGRES_DB: ${DB_NAME:-exchange_service}
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./opendif_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
-      - ./consent_engine_schema.sql:/docker-entrypoint-initdb.d/02_consent_engine_schema.sql
-      - ./audit_service_schema.sql:/docker-entrypoint-initdb.d/03_audit_service_schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -317,6 +315,37 @@ services:
     networks:
       - exchange-network
     restart: unless-stopped
+
+  # One-shot database setup (ndx/migrations/run.sh): creates each service's
+  # database, applies the PDP and CE migrations with the OpenNSW/agency migrate
+  # tool, then loads the demo seed data. PDP, CE and audit start after it
+  # exits successfully. Check its state with `docker compose run --rm migrate status`.
+  migrate:
+    build:
+      context: ./migrations
+      args:
+        # Passed through when set, so a different migrator version needs no
+        # edit here: MIGRATE_VERSION=<pseudo-version> docker compose build migrate
+        - MIGRATE_VERSION
+    container_name: migrate-${ENVIRONMENT:-local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-exchange}
+      - DB_PASSWORD=${DB_PASSWORD:-exchange}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
+      - PDP_DB_NAME=${PDP_DB_NAME:-pdp_db}
+      - CE_DB_NAME=${CE_DB_NAME:-ce_db}
+      - AUDIT_DB_NAME=${AUDIT_DB_NAME:-audit_db}
+      - DEMO_ACCESS_GRANT_TTL=${DEMO_ACCESS_GRANT_TTL:-1 year}
+    volumes:
+      - ./migrations:/migrations:ro
+    restart: "no"
+    networks:
+      - exchange-network
 
 networks:
   exchange-network:

@@ -1,14 +1,8 @@
--- Migration: Create consent_records table with partial unique constraint for active consents
--- Date: 2025-12-12
--- Description: Creates the consent_records table with consent_id as primary key
---              and a partial unique index on (owner_id, app_id, status)
---              that only applies when status is 'pending' or 'approved'.
---              This ensures only one active consent exists per (owner_id, app_id),
---              while allowing multiple historical records (rejected, expired, revoked).
---              A user is identified system-wide by the single canonical owner_id (UID) -
---              consent-engine 0.3.0 dropped owner_email entirely (see openndx-core's
---              cmd/ce/migrations/drop_owner_email.sql); this matches its current schema.
+-- Consent Engine schema: consent records.
+-- The @UP block is openndx-core v0.7.0 cmd/ce/schema.sql without its
+-- BEGIN/COMMIT; the migrator runs each migration in its own transaction.
 
+-- @UP
 -- Create the consent_records table if it doesn't exist
 CREATE TABLE IF NOT EXISTS consent_records (
     consent_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,5 +43,5 @@ CREATE INDEX IF NOT EXISTS idx_consent_records_owner_app ON consent_records(owne
 -- Add comment to table
 COMMENT ON TABLE consent_records IS 'Stores consent records with partial unique constraint on active consents (pending/approved). Multiple historical records (rejected, expired, revoked) are allowed per (owner_id, app_id).';
 
--- To rollback this migration (DROP TABLE):
--- DROP TABLE IF EXISTS consent_records CASCADE;
+-- @DOWN
+DROP TABLE IF EXISTS consent_records;
