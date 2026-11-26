@@ -377,19 +377,19 @@ If you prefer to set up services manually or the `init.sh` script fails, follow 
 cd ndx
 
 # Start all NDX services
-docker-compose up -d
+docker compose up -d
 
 # Wait for services to be ready (about 30 seconds)
 sleep 30
 
 # Check service status
-docker-compose ps
+docker compose ps
 ```
 
 ### Step 2: Configure FUDI Applications
 
 ThunderID's bootstrap (`config/thunderid/bootstrap/02-admin-cli.yaml`) already creates
-an `ADMIN_CLI` M2M client with management API access during `docker-compose up`, so
+an `ADMIN_CLI` M2M client with management API access during `docker compose up`, so
 you can create the required applications with curl instead of a browser console.
 If you changed the secrets in `.env`, load them into your shell first with
 `set -a; . ./.env; set +a`:
@@ -424,7 +424,7 @@ ThunderID container:
 
 ```bash
 # Extract ThunderID's signing public key (PEM)
-docker cp "$([ -d ndx ] && cd ndx; docker-compose ps -q thunderid):/opt/thunderid/config/certs/signing.cert" /tmp/signing.cert
+docker cp "$([ -d ndx ] && cd ndx; docker compose ps -q thunderid):/opt/thunderid/config/certs/signing.cert" /tmp/signing.cert
 PUBLIC_KEY=$(openssl x509 -in /tmp/signing.cert -pubkey -noout)
 
 # Register the OE route (jq inlines the PEM with correct JSON escaping)
@@ -667,16 +667,16 @@ docker compose -f ndx/docker-compose.yml exec -T postgres \
 ```bash
 # Check PostgreSQL logs
 cd ndx
-docker-compose logs postgres
+docker compose logs postgres
 
 # Restart PostgreSQL
-docker-compose restart postgres
+docker compose restart postgres
 ```
 
 **ThunderID timeout:**
 ```bash
 # Check ThunderID logs (db-init and setup run once and exit; thunderid is the long-running server)
-docker-compose logs thunderid thunderid-setup thunderid-db-init
+docker compose logs thunderid thunderid-setup thunderid-db-init
 
 # Or allocate more memory to Docker (increase to 4GB+)
 ```
@@ -749,11 +749,11 @@ If you need to stop services manually:
 ```bash
 # Stop Docker Compose services (preserve volumes)
 cd ndx
-docker-compose down
+docker compose down
 
 # Stop Docker Compose services and remove volumes (clean start)
 cd ndx
-docker-compose down -v
+docker compose down -v
 
 # Stop member services (if running in background)
 # Find and kill the processes
@@ -771,7 +771,7 @@ To remove all data and start fresh:
 ```bash
 # Stop and remove all containers, networks, and volumes
 cd ndx
-docker-compose down -v
+docker compose down -v
 
 # Or manually remove specific volume
 docker volume rm ndx_pg_data
@@ -780,7 +780,7 @@ docker volume rm ndx_pg_data
 # You'll need to run init.sh again to recreate everything
 ```
 
-**Note:** If you encounter schema mismatch errors (like "invalid UUID length"), it's usually because the database wasn't properly initialized. Use `docker-compose down -v` to remove the old volume and start fresh.
+**Note:** If you encounter schema mismatch errors (like "invalid UUID length"), it's usually because the database wasn't properly initialized. Use `docker compose down -v` to remove the old volume and start fresh.
 
 ## Next Steps
 
@@ -797,7 +797,7 @@ Once your setup is complete and verified:
 If you encounter issues not covered in this guide:
 
 1. Check the [main README](README.md) for additional documentation
-2. Review service logs: `docker-compose logs <service-name>`
+2. Review service logs: `docker compose logs <service-name>`
 3. Open an issue on [GitHub Issues](https://github.com/openndx/openndx-farajaland/issues)
 
 ## Configuration Files
@@ -821,7 +821,7 @@ The `docker-compose.yml` includes optional services that are disabled by default
 
 ```bash
 cd ndx
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Custom Environment Variables
