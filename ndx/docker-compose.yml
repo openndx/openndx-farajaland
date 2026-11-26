@@ -28,7 +28,7 @@ services:
   # Stage A: seed the ThunderID image's bundled SQLite DB files into a named
   # volume so thunderid-setup/thunderid see a writable copy.
   thunderid-db-init:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.1.1}
     container_name: thunderid-db-init-${ENVIRONMENT:-local}
     # Seed only when the volume is empty. Recreating this container (e.g. after
     # an unrelated env var change) must never overwrite an already-populated
@@ -57,7 +57,7 @@ services:
   # ThunderID's /import API once the server is up (see
   # config/thunderid/data-consumers/ and config/thunderid/demo-citizens/).
   thunderid-setup:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.1.1}
     container_name: thunderid-setup-${ENVIRONMENT:-local}
     command: ./setup.sh
     depends_on:
@@ -97,7 +97,7 @@ services:
       - exchange-network
 
   thunderid:
-    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.0.1}
+    image: ghcr.io/thunder-id/thunderid:${THUNDERID_IMAGE_TAG:-1.1.1}
     container_name: thunderid-${ENVIRONMENT:-local}
     depends_on:
       thunderid-setup:

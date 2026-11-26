@@ -3,7 +3,8 @@
 This guide will help you set up and run the OpenNDX Farajaland reference implementation on your local machine.
 
 The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
-to OpenNDX **v0.7.0**. ThunderID remains at **1.0.1**, as in the upstream release.
+to OpenNDX **v0.7.0**. ThunderID is pinned to **1.1.1**, newer than the 1.0.1
+that the openndx-core v0.7.0 release uses.
 The passport app is built from this checkout at startup so it requests the OAuth
 audience required by the upgraded Orchestration Engine.
 
@@ -411,8 +412,8 @@ TOKEN=$(curl -sS -u "ADMIN_CLI:${ADMIN_CLI_SECRET:-1234}" \
 
 Or simply run `./init.sh`, which performs all of this automatically.
 
-The System resource's `https://localhost:8090/mcp` identifier is fixed in
-ThunderID 1.0.1, including in HTTP mode. It is an OAuth audience string; the
+The System resource's `https://localhost:8090/mcp` identifier has been fixed
+since ThunderID 1.0.1, including in HTTP mode. It is an OAuth audience string; the
 management token and application API requests still connect over HTTP.
 
 ### Step 3: Register API Gateway Routes

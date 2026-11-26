@@ -242,8 +242,8 @@ M2M_CLIENT_SECRET="${PASSPORT_CLIENT_SECRET:-1234}"
 
 ADMIN_CLI_SECRET="${ADMIN_CLI_SECRET:-1234}"
 # The image-shipped "System" resource server's identifier (see
-# config/thunderid/bootstrap/02-admin-cli.yaml's resourceServerId) - 1.0.1
-# requires client_credentials token requests to name a target resource
+# config/thunderid/bootstrap/02-admin-cli.yaml's resourceServerId) - since 1.0.1,
+# ThunderID requires client_credentials token requests to name a target resource
 # explicitly via `resource`, unlike 0.48. This built-in resource's identifier
 # is fixed at https://localhost:8090/mcp even when ThunderID serves HTTP;
 # it is an OAuth audience string, not a URL this script connects to.
