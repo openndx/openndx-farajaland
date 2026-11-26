@@ -47,9 +47,10 @@ The following are only required if you want to run and modify the data source se
 - **Ports**: Ensure the following ports are available:
   - **Core Services**
     - `4000` - Orchestration Engine
-    - `9081, 9180` - API Gateway (APISIX)
+    - `9081, 9180` - API Gateway (APISIX); the `9180` admin API listens on
+      `127.0.0.1` only
     - `8090` - FUDI (ThunderID)
-    - `5173` - Consent Portal (Frontend)
+    - `5173` - Consent Portal (Frontend), on `127.0.0.1` only
     - `3001` - Audit Service
   - **Member Services**
     - `8080` - RGD API
@@ -217,7 +218,10 @@ All services are running. Monitoring...
    - **Passport Application**: `http://localhost:3000` - Main application for testing consent flows
    - **Consent Portal**: `http://localhost:5173` - Standalone consent management interface
    - **API Gateway**: `http://localhost:9081/public/graphql` - Public GraphQL endpoint
-   - **Audit Logs API**: `http://localhost:9081/api/audit-logs` - Query audit logs
+   - **Audit Logs API**: `http://localhost:9081/api/audit-logs` - Query audit logs.
+     The audit service requires its API key, `ARGUS_API_KEY` from `ndx/.env`, in
+     an `X-API-Key` header:
+     `curl -H 'X-API-Key: test-audit-token' http://localhost:9081/api/audit-logs`
 
 4. **Keep Running**: The script will continue running and monitoring services. Press `Ctrl+C` when you want to stop all services.
 
