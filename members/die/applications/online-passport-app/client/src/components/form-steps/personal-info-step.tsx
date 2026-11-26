@@ -13,7 +13,7 @@ import { mapPersonInfoToFormData } from "@/lib/map-person-info"
 import { LoadDetailsAlert } from "@/components/load-details-alert"
 import { useToast } from "@/hooks/use-toast"
 
-const sriLankanDistricts = [
+const districts = [
   "Central",
   "Northern",
   "Southern",
@@ -35,7 +35,7 @@ export function PersonalInfoStep() {
   // Get NIC from logged-in user
   const getUserNic = () => {
     try {
-      const storedUser = localStorage.getItem("sludi_user")
+      const storedUser = localStorage.getItem("fudi_user")
       if (storedUser) {
         const user = JSON.parse(storedUser)
         return user.nic || ""
@@ -132,13 +132,6 @@ export function PersonalInfoStep() {
   const age = calculateAge()
   const isMinor = age !== null && age < 16
 
-  const validateNIC = (nic: string) => {
-    // Basic NIC validation for Sri Lankan format
-    const oldFormat = /^[0-9]{9}[vVxX]$/
-    const newFormat = /^[0-9]{12}$/
-    return oldFormat.test(nic) || newFormat.test(nic)
-  }
-
   const handleInputChange = (field: string, value: string) => {
     const newData = { ...personalData, [field]: value }
     setPersonalData(newData)
@@ -148,11 +141,6 @@ export function PersonalInfoStep() {
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
-    }
-
-    // Validate NIC format
-    if (field === "nic" && value && !validateNIC(value)) {
-      setErrors((prev) => ({ ...prev, nic: "Invalid NIC format" }))
     }
   }
 
@@ -236,7 +224,7 @@ export function PersonalInfoStep() {
               <SelectValue placeholder="Select your district" />
             </SelectTrigger>
             <SelectContent>
-              {sriLankanDistricts.map((district) => (
+              {districts.map((district) => (
                 <SelectItem key={district} value={district.toLowerCase()}>
                   {district}
                 </SelectItem>
@@ -330,7 +318,7 @@ export function PersonalInfoStep() {
                 <SelectValue placeholder="Select district" />
               </SelectTrigger>
               <SelectContent>
-                {sriLankanDistricts.map((district) => (
+                {districts.map((district) => (
                   <SelectItem key={district} value={district.toLowerCase()}>
                     {district}
                   </SelectItem>

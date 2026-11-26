@@ -180,7 +180,7 @@ Client → GraphQL Query (retry) → API Gateway → Data Response
 ```json
 {
   "consentId": "consent_abc123",
-  "citizenId": "123456789V",
+  "citizenId": "suresh@ndx.fl",
   "consumerId": "DIE",
   "dataScope": {
     "providers": ["RGD", "DRP"],

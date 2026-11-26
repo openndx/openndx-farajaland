@@ -1,15 +1,15 @@
-import type {User as SludiUser} from "../types/user.sludi";
+import type {User as FudiUser} from "../types/user.fudi";
 import {Button} from "@/components/ui/button";
 import {Globe, User, Search} from "lucide-react";
 import {Link} from "react-router-dom";
 import {useEffect, useState} from "react";
 
 export function Header() {
-    const [user, setUser] = useState<SludiUser | null>(null);
+    const [user, setUser] = useState<FudiUser | null>(null);
 
     useEffect(() => {
         try {
-            const storedUser = localStorage.getItem("sludi_user");
+            const storedUser = localStorage.getItem("fudi_user");
             if (storedUser) {
                 setUser(JSON.parse(storedUser));
             }
@@ -26,7 +26,7 @@ export function Header() {
                     <Link to="/">
                         <div className="flex items-center space-x-4">
                             <div className="flex-shrink-0">
-                                <img src="/sri-lankan-coat-of-arms.png" alt="Sri Lankan Coat of Arms"
+                                <img src="/emblem.svg" alt="Farajaland emblem"
                                      className="h-10 w-10"/>
                             </div>
                             <div>
@@ -50,12 +50,6 @@ export function Header() {
                         <Button variant="outline" size="sm" className="text-sm bg-transparent">
                             <Globe className="h-4 w-4 mr-2"/>
                             English
-                        </Button>
-                        <Button variant="outline" size="sm" className="text-sm bg-transparent">
-                            සිංහල
-                        </Button>
-                        <Button variant="outline" size="sm" className="text-sm bg-transparent">
-                            தமிழ்
                         </Button>
                         {user?.authenticated ? (
                             <>

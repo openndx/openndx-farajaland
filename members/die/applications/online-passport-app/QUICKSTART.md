@@ -35,13 +35,13 @@ The complete app will run on: http://localhost:3000
 ## Testing the Application
 
 ### Demo Login Credentials
-- **SLUDI Number:** `3434 3434 3434` (pre-filled)
+- **FUDI Number:** `3434 3434 3434` (pre-filled)
 - **OTP:** Any 6-digit number (e.g., `123456`)
 
 ### Demo Status Tracking
 Search with:
 - Application Number: `PA2024001234`
-- OR NIC: `123456789V`
+- OR NIC: `suresh@ndx.fl`
 
 ## Common Issues
 

@@ -13,17 +13,17 @@ public function mockInitializeDRPClient() returns DRPAPIClient|error {
     DRPAPIClient mockClient = test:mock(DRPAPIClient);
 
     // Prepare the mock client to respond to the 'getPersonByNic' call for the SUCCESS case.
-    test:prepare(mockClient).when("getPersonByNic").withArguments("199512345678").thenReturn(getMockPersonData());
+    test:prepare(mockClient).when("getPersonByNic").withArguments("suresh@ndx.fl").thenReturn(getMockPersonData());
     
     // Prepare the mock client to respond with an error for the NOT FOUND case.
-    test:prepare(mockClient).when("getPersonByNic").withArguments("000000000000").thenReturn(error("Person not found in mock"));
+    test:prepare(mockClient).when("getPersonByNic").withArguments("unknown@ndx.fl").thenReturn(error("Person not found in mock"));
     return mockClient;
 }
 
 // Helper function to return the mock data record. This uses the 'PersonData' type from 'main.bal'.
 function getMockPersonData() returns PersonData {
     return {
-        nic: "199512345678", fullName: "Suresh Fernando", otherNames: "", permanentAddress: "105 Main Street, Central City 10000", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
+        nic: "suresh@ndx.fl", fullName: "Suresh Fernando", otherNames: "", permanentAddress: "105 Main Street, Central City 10000", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
     };
 }
 
@@ -42,16 +42,16 @@ public function testHealthCheck() returns error? {
 
 @test:Config {}
 public function testPersonFound() returns error? {
-    string query = "{ drp { person(nic: \"199512345678\") { fullName nic civilStatus } } }";
+    string query = "{ drp { person(nic: \"suresh@ndx.fl\") { fullName nic civilStatus } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
-    json expected = { "data": { "drp": { "person": { "fullName": "Suresh Fernando", "nic": "199512345678", "civilStatus": "MARRIED" } } } };
+    json expected = { "data": { "drp": { "person": { "fullName": "Suresh Fernando", "nic": "suresh@ndx.fl", "civilStatus": "MARRIED" } } } };
     test:assertEquals(response, expected, "Response mismatch for found person");
 }
 
 @test:Config {}
 public function testPersonNotFound() returns error? {
-    string query = "{ drp { person(nic: \"000000000000\") { fullName } } }";
+    string query = "{ drp { person(nic: \"unknown@ndx.fl\") { fullName } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "person": null } } };
@@ -60,7 +60,7 @@ public function testPersonNotFound() returns error? {
 
 @test:Config {}
 public function testCardStatusQuery() returns error? {
-    string query = "{ drp { cardStatus(nic: \"199512345678\") } }";
+    string query = "{ drp { cardStatus(nic: \"suresh@ndx.fl\") } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "cardStatus": "ACTIVE" } } };
@@ -69,7 +69,7 @@ public function testCardStatusQuery() returns error? {
 
 @test:Config {}
 public function testCardStatusNotFound() returns error? {
-    string query = "{ drp { cardStatus(nic: \"000000000000\") } }";
+    string query = "{ drp { cardStatus(nic: \"unknown@ndx.fl\") } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "cardStatus": null } } };
@@ -78,7 +78,7 @@ public function testCardStatusNotFound() returns error? {
 
 @test:Config {}
 public function testParentInfoQuery() returns error? {
-    string query = "{ drp { parentInfo(nic: \"199512345678\") { fatherName motherName } } }";
+    string query = "{ drp { parentInfo(nic: \"suresh@ndx.fl\") { fatherName motherName } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "parentInfo": { "fatherName": "John Fernando", "motherName": "Jane Fernando" } } } };
@@ -87,7 +87,7 @@ public function testParentInfoQuery() returns error? {
 
 @test:Config {}
 public function testParentInfoNotFound() returns error? {
-    string query = "{ drp { parentInfo(nic: \"000000000000\") { fatherName } } }";
+    string query = "{ drp { parentInfo(nic: \"unknown@ndx.fl\") { fatherName } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "parentInfo": null } } };
@@ -97,7 +97,7 @@ public function testParentInfoNotFound() returns error? {
 @test:Config {}
 public function testLostCardInfoQuery() returns error? {
     // The mock data has no lost card info, so we expect a null response.
-    string query = "{ drp { lostCardInfo(nic: \"199512345678\") { policeStation } } }";
+    string query = "{ drp { lostCardInfo(nic: \"suresh@ndx.fl\") { policeStation } } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "drp": { "lostCardInfo": null } } };

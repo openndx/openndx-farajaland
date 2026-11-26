@@ -259,7 +259,7 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 ### Test the browser flow
 
 1. Open `http://localhost:3000/login` directly. This is the demo applicant login:
-   keep the prefilled SLUDI value and OTP (`232323`), then click **Continue** and
+   keep the prefilled FUDI value and OTP (`232323`), then click **Continue** and
    **Complete Login**. This simulated OTP flow selects the demo record identified
    by `suresh@ndx.fl`; it does not send an SMS.
 2. On the application form, click **Load My Details**. With no approved consent,
@@ -271,7 +271,8 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 4. The passport app should retry automatically and fill the form. Check surname
    **Fernando**, other names **Suresh**, address
    **105 Main Street, Central City 10000**, profession **Software Engineer**,
-   birth certificate **BR2025001**, and birthplace **Central General Hospital**.
+   date of birth **1995-12-01**, birth certificate **BR1995001**, and birthplace
+   **Central General Hospital**.
    These combine DRP and RGD records for **Suresh Fernando**.
 5. Open `http://localhost:5173/consents` in another tab, select the approved
    passport consent, and revoke it. Return to the passport app, reload the page,

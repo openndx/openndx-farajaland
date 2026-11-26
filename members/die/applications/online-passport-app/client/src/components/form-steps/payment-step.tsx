@@ -12,6 +12,7 @@ import { FormFieldWrapper } from "@/components/form-field-wrapper"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { CreditCard, Building, Smartphone, Shield, CheckCircle } from "lucide-react"
+import { CURRENCY } from "@/lib/utils"
 
 interface PaymentData {
   paymentMethod: string
@@ -55,9 +56,6 @@ export function PaymentStep() {
     switch (travelDocument) {
       case "all-countries":
         baseFee = 3500
-        break
-      case "middle-east":
-        baseFee = 2500
         break
       case "emergency":
         baseFee = 7500
@@ -146,22 +144,22 @@ export function PaymentStep() {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-blue-800">Passport Fee</span>
-              <span className="font-medium">LKR {fees.baseFee.toLocaleString()}</span>
+              <span className="font-medium">{CURRENCY} {fees.baseFee.toLocaleString()}</span>
             </div>
             {fees.processingFee > 0 && (
               <div className="flex justify-between">
                 <span className="text-blue-800">Express Processing Fee</span>
-                <span className="font-medium">LKR {fees.processingFee.toLocaleString()}</span>
+                <span className="font-medium">{CURRENCY} {fees.processingFee.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-blue-800">Service Fee</span>
-              <span className="font-medium">LKR {fees.serviceFee.toLocaleString()}</span>
+              <span className="font-medium">{CURRENCY} {fees.serviceFee.toLocaleString()}</span>
             </div>
             <Separator />
             <div className="flex justify-between text-lg font-semibold">
               <span className="text-blue-900">Total Amount</span>
-              <span className="text-blue-900">LKR {fees.total.toLocaleString()}</span>
+              <span className="text-blue-900">{CURRENCY} {fees.total.toLocaleString()}</span>
             </div>
           </div>
         </CardContent>
@@ -313,12 +311,11 @@ export function PaymentStep() {
                       <SelectValue placeholder="Select your bank" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="boc">Bank of Ceylon</SelectItem>
-                      <SelectItem value="peoples">People's Bank</SelectItem>
+                      <SelectItem value="national">National Bank</SelectItem>
+                      <SelectItem value="peoples-trust">People's Trust Bank</SelectItem>
                       <SelectItem value="commercial">Commercial Bank</SelectItem>
-                      <SelectItem value="hnb">Hatton National Bank</SelectItem>
-                      <SelectItem value="sampath">Sampath Bank</SelectItem>
-                      <SelectItem value="seylan">Seylan Bank</SelectItem>
+                      <SelectItem value="central">Central Bank</SelectItem>
+                      <SelectItem value="citizen">Citizen Bank</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormFieldWrapper>
@@ -342,7 +339,7 @@ export function PaymentStep() {
               <CardContent className="space-y-4">
                 <FormFieldWrapper label="Mobile Number" required>
                   <Input
-                    placeholder="+94 XX XXX XXXX"
+                    placeholder="+100 XX XXX XXXX"
                     value={paymentData.mobileNumber}
                     onChange={(e) => handleInputChange("mobileNumber", e.target.value)}
                   />
@@ -381,7 +378,7 @@ export function PaymentStep() {
                     Processing Payment...
                   </>
                 ) : (
-                  `Pay LKR ${fees.total.toLocaleString()}`
+                  `Pay ${CURRENCY} ${fees.total.toLocaleString()}`
                 )}
               </Button>
             </div>
@@ -404,7 +401,7 @@ export function PaymentStep() {
               </div>
               <div>
                 <p className="text-green-700 font-medium">Amount Paid</p>
-                <p className="text-green-800 font-semibold">LKR {fees.total.toLocaleString()}</p>
+                <p className="text-green-800 font-semibold">{CURRENCY} {fees.total.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-green-700 font-medium">Payment Method</p>

@@ -13,7 +13,7 @@ export function HeroSection() {
       <div
         className="pointer-events-none fixed inset-0 bg-cover bg-center bg-no-repeat opacity-20"
         style={{
-          backgroundImage: "url('/sri-lankan-cityscape-with-modern-buildings-and-pal.png')",
+          backgroundImage: "url('/cityscape.png')",
         }}
       />
 

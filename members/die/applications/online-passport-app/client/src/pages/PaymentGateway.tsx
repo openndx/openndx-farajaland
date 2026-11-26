@@ -6,8 +6,9 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { ArrowLeft, Shield, CreditCard, Building, QrCode } from "lucide-react";
+import { CURRENCY } from "../lib/utils";
 
-export default function GovPay() {
+export default function PaymentGateway() {
   const navigate = useNavigate();
   const [applicationData, setApplicationData] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("card");
@@ -71,7 +72,7 @@ export default function GovPay() {
             </Button>
             <div className="ml-8">
               <div className="flex flex-col">
-                <h2 className="text-2xl font-bold">GovPay</h2>
+                <h2 className="text-2xl font-bold">Payment Gateway</h2>
                 <span className="text-sm text-gray-600">Secure & Convenient Payments for Government Services</span>
               </div>
             </div>
@@ -87,7 +88,7 @@ export default function GovPay() {
           <Card>
             <CardHeader>
               <CardTitle>Payment Summary</CardTitle>
-              <CardDescription>Sri Lankan Passport Application</CardDescription>
+              <CardDescription>Farajaland Passport Application</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -103,13 +104,13 @@ export default function GovPay() {
                 </div>
                 <div className="flex justify-between">
                   <span>Document Type:</span>
-                  <span className="font-medium">
-                    {applicationData.documentType === "all-countries" ? "All Countries" : "Middle East Countries"}
+                  <span className="font-medium capitalize">
+                    {applicationData.documentType?.replace("-", " ") || "All Countries"}
                   </span>
                 </div>
                 <div className="border-t pt-3 flex justify-between text-lg font-bold">
                   <span>Total Amount:</span>
-                  <span className="text-blue-600">LKR {applicationData.totalAmount}</span>
+                  <span className="text-blue-600">{CURRENCY} {applicationData.totalAmount}</span>
                 </div>
               </div>
             </CardContent>
@@ -188,7 +189,7 @@ export default function GovPay() {
                     <img src="/qr-code-payment.png" alt="QR Code for Payment" className="w-40 h-40" />
                   </div>
                   <p className="text-sm text-gray-600 mb-2">Scan this QR code with your mobile banking app</p>
-                  <p className="text-xs text-gray-500">Amount: LKR {applicationData.totalAmount}</p>
+                  <p className="text-xs text-gray-500">Amount: {CURRENCY} {applicationData.totalAmount}</p>
                 </div>
               )}
 
@@ -219,7 +220,7 @@ export default function GovPay() {
                     Processing Payment...
                   </div>
                 ) : (
-                  `Pay LKR ${applicationData.totalAmount}`
+                  `Pay ${CURRENCY} ${applicationData.totalAmount}`
                 )}
               </Button>
             </CardContent>

@@ -78,7 +78,7 @@ export function usePersonInfo(): UsePersonInfoResult {
 
   const loadPersonInfo = async (): Promise<PersonInfoData | null> => {
       // Get user data from localStorage
-      const userData = localStorage.getItem('sludi_user');
+      const userData = localStorage.getItem('fudi_user');
       if (!userData) {
         toast({
           title: 'Error',

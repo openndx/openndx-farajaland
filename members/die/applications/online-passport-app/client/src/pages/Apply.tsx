@@ -8,7 +8,7 @@ import { ReviewDeclarationStep } from "../components/form-steps/review-declarati
 interface User {
   name: string;
   nic: string;
-  sludiNumber?: string;
+  fudiNumber?: string;
   mobileNumber: string;
   email: string;
   authenticated: boolean;
@@ -21,7 +21,7 @@ export default function Apply() {
 
   useEffect(() => {
     // Check if user is authenticated
-    const storedUser = localStorage.getItem("sludi_user");
+    const storedUser = localStorage.getItem("fudi_user");
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     } else {

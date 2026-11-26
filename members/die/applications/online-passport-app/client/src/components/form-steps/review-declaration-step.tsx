@@ -224,7 +224,7 @@ export function ReviewDeclarationStep() {
             <p className="font-medium text-foreground">I declare that:</p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
               <li>
-                I am a citizen of Sri Lanka and the above information provided by me and the documents attached hereto
+                I am a citizen of Farajaland and the above information provided by me and the documents attached hereto
                 are true and correct.
               </li>
               <li>
@@ -240,7 +240,7 @@ export function ReviewDeclarationStep() {
                 and Emigration.
               </li>
               <li>
-                I understand that the passport remains the property of the Government of Sri Lanka and may be withdrawn
+                I understand that the passport remains the property of the Government of Farajaland and may be withdrawn
                 at any time.
               </li>
             </ul>
