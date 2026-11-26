@@ -54,19 +54,22 @@ OpenNDX Farajaland implements a **federated data exchange architecture** that en
 └──────┬──────────────────────┬────────────────────┬──────────────┘
        │                      │                    │
        ↓                      ↓                    ↓
-┌──────────────┐    ┌─────────────────┐   ┌──────────────────┐
-│   Consent    │    │ Policy Decision │   │  Data Sources    │
-│   Engine     │    │  Point (PDP)    │   │                  │
-│              │    │                 │   │  ┌────────────┐  │
-│ Port: 8081   │    │  Port: 8082     │   │  │ DRP (9090) │  │
-│              │    │                 │   │  └────────────┘  │
-└──────────────┘    └─────────────────┘   │  ┌────────────┐  │
-                                          │  │ RGD (8080) │  │
-                                          │  └────────────┘  │
-                                          │  ┌────────────┐  │
-                                          │  │ DMT (TBD)  │  │
-                                          │  └────────────┘  │
-                                          └──────────────────┘
+┌──────────────┐    ┌─────────────────┐   ┌───────────────────────┐
+│   Consent    │    │ Policy Decision │   │  Data Sources         │
+│   Engine     │    │  Point (PDP)    │   │                       │
+│              │    │                 │   │ ┌───────────────────┐ │
+│ Port: 8081   │    │  Port: 8082     │   │ │ Identity Registry │ │
+│              │    │                 │   │ │      (9091)       │ │
+└──────────────┘    └─────────────────┘   │ └───────────────────┘ │
+                                          │ ┌───────────────────┐ │
+                                          │ │  Civil Registry   │ │
+                                          │ │      (8080)       │ │
+                                          │ └───────────────────┘ │
+                                          │ ┌───────────────────┐ │
+                                          │ │ Vehicle Registry  │ │
+                                          │ │       (TBD)       │ │
+                                          │ └───────────────────┘ │
+                                          └───────────────────────┘
        ┌──────────────────────┴─────────────────────┐
        ↓                                            ↓
 ┌──────────────┐                            ┌──────────────┐
@@ -181,9 +184,9 @@ Client → GraphQL Query (retry) → API Gateway → Data Response
 {
   "consentId": "consent_abc123",
   "citizenId": "suresh@ndx.fl",
-  "consumerId": "DIE",
+  "consumerId": "passport-app",
   "dataScope": {
-    "providers": ["RGD", "DRP"],
+    "providers": ["civil-registry-v1", "identity-registry-v1"],
     "fields": ["fullName", "dateOfBirth", "address"]
   },
   "purpose": "Passport Application",
@@ -214,14 +217,14 @@ Request Context → Policy Engine → Evaluate Rules → Decision (PERMIT/DENY)
 **Purpose**: Government department APIs providing citizen data
 
 **Components**:
-- Data Provider APIs (RGD, DRP, DMT)
+- Data Provider APIs (Civil Registry, Identity Registry, Vehicle Registry)
 - Adapters (for non-GraphQL sources)
 - Authentication services
 - Data stores (managed by providers)
 
 **Integration Patterns**:
-- **Native GraphQL**: Direct integration (e.g., RGD)
-- **Adapter Pattern**: Translation layer for REST/SOAP (e.g., DRP)
+- **Native GraphQL**: Direct integration (e.g., the Civil Registry)
+- **Adapter Pattern**: Translation layer for REST/SOAP (e.g., the Identity Registry)
 
 ---
 
@@ -277,14 +280,14 @@ OpenNDX communicates with data providers using **GraphQL** for all egress calls.
                              Response
 ```
 
-### Example: DRP Adapter
+### Example: Identity Registry Adapter
 
-The **DRP (Department of Registration of Persons)** has an existing REST API that returns JSON. The DRP adapter:
+The **Identity Registry** has an existing REST API that returns JSON. The Identity Registry adapter:
 
 1. **Receives** GraphQL queries from NDX
 2. **Parses** the GraphQL query structure
 3. **Translates** to REST API calls (GET/POST with appropriate parameters)
-4. **Calls** the original DRP REST API
+4. **Calls** the original Identity Registry REST API
 5. **Transforms** REST JSON responses back to GraphQL format
 6. **Returns** GraphQL response to NDX
 
@@ -303,7 +306,7 @@ service /graphql on new http:Listener(9090) {
         string nic = check query.variables.nic;
 
         // Call REST API
-        http:Client restClient = check new("http://drp-legacy-api:8080");
+        http:Client restClient = check new("http://identity-registry-legacy-api:8080");
         json restResponse = check restClient->get("/person/" + nic);
 
         // Transform to GraphQL response format
@@ -331,7 +334,7 @@ Parse SOAP Response → Transform to GraphQL → Return
 
 ### When You Don't Need an Adapter
 
-❌ Your data source already speaks GraphQL natively (like RGD)
+❌ Your data source already speaks GraphQL natively (like the Civil Registry)
 ❌ You can directly modify your data source to support GraphQL
 ❌ You're building a new data source from scratch
 
@@ -355,14 +358,14 @@ This section provides technical details about member organizations in the ecosys
 
 Organizations that provide data as custodians. They expose data through standardized interfaces.
 
-#### DRP - Department of Registration of Persons
+#### Identity Registry
 
 **Architecture**:
 - **API Type**: REST → GraphQL (via Adapter)
 - **Technology Stack**: Ballerina (Adapter), REST API (Legacy)
-- **Port**: 9090
+- **Port**: 9091 (the adapter; the REST API it calls is on 9090)
 - **Authentication**: API Key (Choreo platform)
-- **Schema ID**: `drp-schema-v1`
+- **Schema ID**: `identity-registry-v1`
 
 **Data Model**:
 ```graphql
@@ -377,25 +380,24 @@ type Person {
 
 **Integration Pattern**: Adapter-based
 - Legacy REST API remains unchanged
-- DRP Adapter translates GraphQL ↔ REST
+- The Identity Registry adapter translates GraphQL ↔ REST
 - NDX communicates only with the adapter
 
 **Endpoints**:
-- GraphQL: `http://localhost:9090/graphql`
-- Health Check: `http://localhost:9090/health`
+- GraphQL: `http://localhost:9091/`
 
-**Location**: `members/drp/data-sources/drp-api-adapter/`
+**Location**: `members/identity-registry/data-sources/identity-registry-adapter/`
 
 ---
 
-#### RGD - Registrar General's Department
+#### Civil Registry
 
 **Architecture**:
 - **API Type**: Native GraphQL
 - **Technology Stack**: Python (FastAPI), Strawberry GraphQL
 - **Port**: 8080
 - **Authentication**: OAuth2 Client Credentials
-- **Schema ID**: `abc-212`
+- **Schema ID**: `civil-registry-v1`
 
 **Data Model**:
 ```graphql
@@ -418,18 +420,18 @@ type BirthInfo {
 - OAuth2 Token: `http://localhost:8080/oauth2/token`
 - Health Check: `http://localhost:8080/health`
 
-**Location**: `members/rgd/data-sources/rgd-api/`
+**Location**: `members/civil-registry/data-sources/civil-registry-api/`
 
 ---
 
-#### DMT - Department of Motor Traffic
+#### Vehicle Registry
 
 **Architecture**: (Planned)
 - **API Type**: TBD (likely REST → GraphQL via Adapter)
 - **Technology Stack**: TBD
 - **Port**: TBD
 - **Authentication**: TBD
-- **Schema ID**: `dmt-schema-v1`
+- **Schema ID**: `vehicle-registry-v1`
 
 **Data Model**:
 ```graphql
@@ -449,7 +451,7 @@ type VehicleClass {
 
 **Status**: Schema defined, implementation pending
 
-**Location**: `members/dmt/` (to be implemented)
+**Location**: `members/vehicle-registry/` (to be implemented)
 
 ---
 
@@ -457,35 +459,35 @@ type VehicleClass {
 
 Organizations that consume federated data to deliver citizen services.
 
-#### DIE - Department of Immigration and Emigration
+#### Immigration Department
 
 **Architecture**:
 - **Application Type**: Web Application
-- **Technology Stack**: TBD (React/Vue.js + Node.js backend)
+- **Technology Stack**: React + Vite frontend, Express backend
 - **Integration**: GraphQL queries to NDX
 - **Authentication**: OAuth2 with FUDI
 
 **Data Requirements**:
-- Citizen identity (from RGD)
-- Current address and profession (from DRP)
-- Vehicle ownership *(future)* (from DMT)
+- Citizen identity (from the Civil Registry)
+- Current address and profession (from the Identity Registry)
+- Vehicle ownership *(future)* (from the Vehicle Registry)
 
 **Integration Pattern**:
 ```
-DIE App → GraphQL Query → NDX API Gateway
+Passport app → GraphQL Query → NDX API Gateway
     ↓
 Check Consent → No Consent Found
     ↓
-Return Consent Portal URL → DIE redirects citizen
+Return Consent Portal URL → Passport app redirects citizen
     ↓
 Citizen authenticates via FUDI → Grants consent
     ↓
-Redirect back to DIE → Retry GraphQL query
+Redirect back to passport app → Retry GraphQL query
     ↓
-Consent Verified → Fetch data from RGD + DRP → Return aggregated data
+Consent Verified → Fetch data from Civil Registry + Identity Registry → Return aggregated data
 ```
 
-**Location**: `members/die/applications/passport-app/` (planned)
+**Location**: `members/immigration/applications/online-passport-app/`
 
 ---
 
@@ -534,11 +536,11 @@ Consent Verified → Fetch data from RGD + DRP → Return aggregated data
 ```graphql
 type PersonInfo {
     fullName: String @sourceInfo(
-        schemaId: "drp-schema-v1",
+        schemaId: "identity-registry-v1",
         providerField: "person.fullName"
     )
     dateOfBirth: String @sourceInfo(
-        schemaId: "abc-212",
+        schemaId: "civil-registry-v1",
         providerField: "getPersonInfo.birthDate"
     )
 }
@@ -608,29 +610,29 @@ type PersonInfo {
 
 #### Citizen Authentication (via FUDI)
 ```
-1. Citizen accesses DIE application
-2. DIE redirects to FUDI login
+1. Citizen accesses the passport application
+2. The passport application redirects to FUDI login
 3. Citizen enters credentials (username/password)
 4. FUDI validates credentials
 5. Optional: MFA challenge
 6. FUDI issues ID token + access token
-7. DIE receives tokens via redirect
-8. DIE stores session with tokens
+7. The passport application receives tokens via redirect
+8. The passport application stores session with tokens
 ```
 
 #### Service-to-Service (OAuth2 Client Credentials)
 ```
-1. Orchestration Engine needs to call RGD
-2. OE sends client_id + client_secret to RGD token endpoint
-3. RGD validates credentials
-4. RGD issues access token (JWT)
+1. Orchestration Engine needs to call the Civil Registry
+2. OE sends client_id + client_secret to the Civil Registry token endpoint
+3. The Civil Registry validates credentials
+4. The Civil Registry issues access token (JWT)
 5. OE includes token in Authorization header
-6. RGD validates token on each request
+6. The Civil Registry validates token on each request
 ```
 
 #### API Key Authentication
 ```
-1. DRP Adapter configured with API key
+1. Identity Registry adapter configured with API key
 2. NDX includes API key in header: X-API-Key: xxx
 3. Adapter validates API key
 4. If valid, process request
@@ -688,10 +690,10 @@ Layer 4: Data Source (authentication, authorization)
 ┌─────────┐
 │ Citizen │
 └────┬────┘
-     │ 1. Access DIE App
+     │ 1. Access passport app
      ↓
 ┌──────────────┐
-│  DIE App     │
+│ Passport App │
 └────┬─────────┘
      │ 2. GraphQL Query (GET personInfo)
      ↓
@@ -719,29 +721,29 @@ Layer 4: Data Source (authentication, authorization)
      │ └──────┬───────┘
      │        │ 6. Policy Permits ✓
      ↓        ↓
-┌─────────────────────┐
-│  Query Federation   │
-│  - Sub-query to RGD │
-│  - Sub-query to DRP │
-└────┬────────┬───────┘
-     │        │
-     │ 7a.    │ 7b.
-     ↓        ↓
-┌─────────┐ ┌─────────┐
-│   RGD   │ │   DRP   │
-│   API   │ │ Adapter │
-└────┬────┘ └────┬────┘
-     │           │
-     │ 8a.       │ 8b.
-     ↓           ↓
-┌─────────────────────┐
-│  Data Aggregation   │
-└──────────┬──────────┘
+┌──────────────────────────────────────┐
+│  Query Federation                    │
+│  - Sub-query to Civil Registry       │
+│  - Sub-query to Identity Registry    │
+└────┬──────────────────┬──────────────┘
+     │                  │
+     │ 7a.              │ 7b.
+     ↓                  ↓
+┌────────────────┐ ┌───────────────────┐
+│ Civil Registry │ │ Identity Registry │
+│      API       │ │      Adapter      │
+└────┬───────────┘ └────┬──────────────┘
+     │                  │
+     │ 8a.              │ 8b.
+     ↓                  ↓
+┌──────────────────────────────────────┐
+│           Data Aggregation           │
+└──────────┬───────────────────────────┘
            │ 9. Unified Response
            ↓
-      ┌─────────┐
-      │ DIE App │
-      └─────────┘
+    ┌──────────────┐
+    │ Passport App │
+    └──────────────┘
            │ 10. Display Data
            ↓
       ┌─────────┐
@@ -757,10 +759,10 @@ Layer 4: Data Source (authentication, authorization)
 ┌─────────┐
 │ Citizen │
 └────┬────┘
-     │ 1. Access DIE App
+     │ 1. Access passport app
      ↓
 ┌──────────────┐
-│  DIE App     │
+│ Passport App │
 └────┬─────────┘
      │ 2. GraphQL Query
      ↓
@@ -784,7 +786,7 @@ Layer 4: Data Source (authentication, authorization)
      │ 6. Return URL (not data)
      ↓
 ┌──────────────┐
-│  DIE App     │
+│ Passport App │
 └────┬─────────┘
      │ 7. Redirect to Consent Portal
      ↓
@@ -825,10 +827,10 @@ Layer 4: Data Source (authentication, authorization)
 │   Consent    │
 │   Engine     │
 └────┬─────────┘
-     │ 16. Redirect back to DIE
+     │ 16. Redirect back to passport app
      ↓
 ┌──────────────┐
-│  DIE App     │
+│ Passport App │
 └────┬─────────┘
      │ 17. Retry GraphQL Query
      ↓

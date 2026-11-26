@@ -1,11 +1,11 @@
 name: Release member images
 
-# Push a tag named <image>/v<version>, e.g. rgd-api/v0.2.0, to publish that
+# Push a tag named <image>/v<version>, e.g. civil-registry-api/v0.2.0, to publish that
 # image for linux/amd64 and linux/arm64 to ghcr.io/<owner>/<image>:<version>.
 on:
   push:
     tags:
-      - "rgd-api/v*"
+      - "civil-registry-api/v*"
       - "online-passport-app/v*"
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ on:
         required: true
         type: choice
         options:
-          - rgd-api
+          - civil-registry-api
           - online-passport-app
       version:
         description: Version tag to publish, e.g. v0.2.0
@@ -44,8 +44,8 @@ jobs:
             version="${REF_NAME#*/}"
           fi
           case "$image" in
-            rgd-api) context=members/rgd/data-sources/rgd-api ;;
-            online-passport-app) context=members/die/applications/online-passport-app ;;
+            civil-registry-api) context=members/civil-registry/data-sources/civil-registry-api ;;
+            online-passport-app) context=members/immigration/applications/online-passport-app ;;
             *) echo "::error::Unknown image: $image"; exit 1 ;;
           esac
           if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then

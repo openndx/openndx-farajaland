@@ -30,11 +30,11 @@ Before you begin, ensure you have the following installed:
 
 The following are only required if you want to run and modify the data source services from source code:
 
-- **Python** 3.9+ (for RGD data source development)
+- **Python** 3.9+ (for Civil Registry data source development)
   - [Install Python](https://www.python.org/downloads/)
   - Recommended: Use `pyenv` or `conda` for version management
 
-- **Ballerina** 2201.8.0+ (for DRP data source development)
+- **Ballerina** 2201.8.0+ (for Identity Registry data source development)
   - [Install Ballerina](https://ballerina.io/downloads/)
 
 - **Node.js** 18+ (for client application development)
@@ -53,10 +53,10 @@ The following are only required if you want to run and modify the data source se
     - `5173` - Consent Portal (Frontend), on `127.0.0.1` only
     - `3001` - Audit Service
   - **Member Services**
-    - `8080` - RGD API
-    - `9090` - DRP API
-    - `9091` - DRP API Adapter
-    - `3000` - DIE Passport Application (Frontend)
+    - `8080` - Civil Registry API
+    - `9090` - Identity Registry API
+    - `9091` - Identity Registry Adapter
+    - `3000` - Passport Application (Frontend)
 
 ## Quick Start
 
@@ -145,8 +145,8 @@ CLEAN_START=false ./init.sh
    `ndx/config/thunderid/demo-citizens/`)
 5. ✅ Extracts ThunderID's signing key and registers API routes in APISIX
 6. ✅ Starts member data source services:
-   - RGD API (Python/FastAPI)
-   - DRP API Adapter (Ballerina)
+   - Civil Registry API (Python/FastAPI)
+   - Identity Registry Adapter (Ballerina)
 7. ✅ Starts client applications:
    - Passport Application Frontend (http://localhost:3000)
    - Consent Portal Frontend (http://localhost:5173)
@@ -250,8 +250,9 @@ curl -sS http://localhost:3000/api/health
 
 Expected: the OpenNDX services are running and healthy, the two ThunderID init/setup
 containers have exited with code 0, and the passport health endpoint returns
-`"status":"ok"`. The published RGD v0.1.0 image may report unhealthy even while
-serving GraphQL requests; the data checks below verify it separately.
+`"status":"ok"`. The published Civil Registry image,
+`ghcr.io/openndx/rgd-api:v0.1.0`, may report unhealthy even while serving
+GraphQL requests; the data checks below verify it separately.
 
 Open `http://localhost:8090` to check that ThunderID is reachable.
 Allow popups from `http://localhost:3000` so the passport app can open consent requests.
@@ -273,7 +274,7 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
    **105 Main Street, Central City 10000**, profession **Software Engineer**,
    date of birth **1995-12-01**, birth certificate **BR1995001**, and birthplace
    **Central General Hospital**.
-   These combine DRP and RGD records for **Suresh Fernando**.
+   These combine Identity Registry and Civil Registry records for **Suresh Fernando**.
 5. Open `http://localhost:5173/consents` in another tab, select the approved
    passport consent, and revoke it. Return to the passport app, reload the page,
    and click **Load My Details** again. It must request consent again, rather
@@ -479,15 +480,15 @@ chmod +x run-member-services.sh
 
 Or start services individually:
 
-**RGD API:**
+**Civil Registry API:**
 ```bash
-cd members/rgd/data-sources/rgd-api
+cd members/civil-registry/data-sources/civil-registry-api
 python -m uvicorn main:app --port 8080
 ```
 
-**DRP API Adapter:**
+**Identity Registry Adapter:**
 ```bash
-cd members/drp/data-sources/drp-api-adapter
+cd members/identity-registry/data-sources/identity-registry-adapter
 bal run
 ```
 
@@ -651,9 +652,9 @@ old installation until you sign in again.
 **Verify** `/health` for each service, then run the passport query from
 [Test the exchange through the passport API](#test-the-exchange-through-the-passport-api) before consent, after
 approval and after revocation. Expect `CE_NOT_APPROVED` before approval, then
-data from both DRP and RGD with no `errors`. A `PROVIDER_ERROR` usually means a
-provider rejected a mapped argument's variable type. An application without a
-grant must still get `PDP_NOT_ALLOWED`.
+data from both the Identity Registry and the Civil Registry with no `errors`. A
+`PROVIDER_ERROR` usually means a provider rejected a mapped argument's variable
+type. An application without a grant must still get `PDP_NOT_ALLOWED`.
 
 **Roll back** by checking out `b447abb`, the last v0.6.1 commit, and starting
 from empty volumes in the same way. That commit's seed data gives the passport
@@ -691,13 +692,13 @@ docker compose logs thunderid thunderid-setup thunderid-db-init
 
 **Python dependencies missing:**
 ```bash
-cd members/rgd/data-sources/rgd-api
+cd members/civil-registry/data-sources/civil-registry-api
 pip install -r requirements.txt
 ```
 
 **Ballerina build errors:**
 ```bash
-cd members/drp/data-sources/drp-api-adapter
+cd members/identity-registry/data-sources/identity-registry-adapter
 bal clean
 bal build
 ```
@@ -708,7 +709,7 @@ bal build
 # Make all shell scripts executable
 chmod +x init.sh
 chmod +x members/run-member-services.sh
-chmod +x members/rgd/data-sources/rgd-api/start.sh
+chmod +x members/civil-registry/data-sources/civil-registry-api/start.sh
 ```
 
 ### jq Command Not Found
@@ -753,8 +754,9 @@ CLEAN_START=false ./init.sh
 If you need to stop services manually, run these from the repository root:
 
 ```bash
-# Stop and remove the member service containers (DRP, DRP Adapter, RGD and
-# the passport app), which run outside Docker Compose
+# Stop and remove the member service containers (the Identity Registry API and
+# adapter, the Civil Registry API and the passport app), which run outside
+# Docker Compose
 ./members/run-member-services.sh stop
 
 # Stop Docker Compose services (preserve volumes)

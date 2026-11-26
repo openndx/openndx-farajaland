@@ -248,9 +248,9 @@ services:
       - IDP_JWKS_URL=${IDP_JWKS_URL:-http://thunderid:8090/oauth2/jwks}
       - IDP_JWKS_INSECURE_SKIP_VERIFY=${IDP_JWKS_INSECURE_SKIP_VERIFY:-false}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-test-audit-token}
-      - DRP_API_KEY=${DRP_API_KEY:?Set DRP_API_KEY in ndx/.env}
-      - RGD_CLIENT_ID=${RGD_CLIENT_ID:?Set RGD_CLIENT_ID in ndx/.env}
-      - RGD_CLIENT_SECRET=${RGD_CLIENT_SECRET:?Set RGD_CLIENT_SECRET in ndx/.env}
+      - IDENTITY_REGISTRY_API_KEY=${IDENTITY_REGISTRY_API_KEY:?Set IDENTITY_REGISTRY_API_KEY in ndx/.env}
+      - CIVIL_REGISTRY_CLIENT_ID=${CIVIL_REGISTRY_CLIENT_ID:?Set CIVIL_REGISTRY_CLIENT_ID in ndx/.env}
+      - CIVIL_REGISTRY_CLIENT_SECRET=${CIVIL_REGISTRY_CLIENT_SECRET:?Set CIVIL_REGISTRY_CLIENT_SECRET in ndx/.env}
     volumes:
       - ${OE_CONFIG_PATH:-./config/openndx/oe.yaml}:/app/config/config.yaml:ro
       - ${OE_SCHEMA_PATH:-./schema.graphql}:/app/config/schema.graphql:ro
