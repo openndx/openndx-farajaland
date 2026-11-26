@@ -34,8 +34,11 @@ The following are only required if you want to run and modify the data source se
   - [Install Python](https://www.python.org/downloads/)
   - Recommended: Use `pyenv` or `conda` for version management
 
-- **Ballerina** 2201.8.0+ (for Identity Registry data source development)
+- **Ballerina** 2201.13.1 (for Identity Registry data source development; the
+  pinned dependencies need 2201.13 or later)
   - [Install Ballerina](https://ballerina.io/downloads/)
+  - Not needed to build the images: `./members/run-member-services.sh build`
+    compiles the Ballerina services inside Docker
 
 - **Node.js** 18+ (for client application development)
   - [Install Node.js](https://nodejs.org/)

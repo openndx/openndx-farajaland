@@ -97,8 +97,10 @@ configurable string MOCK_API_KEY = ?;
 isolated service / on new http:Listener(PORT) {
 
     isolated resource function get person/[string nic](http:Request request) returns PersonData|http:NotFound|http:Unauthorized|error {
-        string? apiKey = check request.getHeader("X-API-KEY");
-        if apiKey is () || apiKey != MOCK_API_KEY {
+        // A missing header is a client error, so answer 401 rather than letting
+        // `check` turn it into a 500.
+        string|http:HeaderNotFoundError apiKey = request.getHeader("X-API-KEY");
+        if apiKey is http:HeaderNotFoundError || apiKey != MOCK_API_KEY {
             return http:UNAUTHORIZED;
         }
         log:printInfo("Mock Identity Registry API: Request received for person", nic = nic);

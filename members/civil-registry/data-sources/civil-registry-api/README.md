@@ -93,7 +93,7 @@ type PersonData {
   name: String!
   sex: String!
   are_parents_married: Boolean!
-  is_grandfather_born_in_sri_lanka: Boolean!
+  is_grandfather_born_in_country: Boolean!
   father: Father!
   mother: Mother!
   date_of_registration: Date!
@@ -164,7 +164,7 @@ query GetPerson($nic: ID!) {
     district
     division
     are_parents_married
-    is_grandfather_born_in_sri_lanka
+    is_grandfather_born_in_country
     father {
       name
       nic
