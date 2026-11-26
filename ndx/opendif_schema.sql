@@ -17,15 +17,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: access_control_type_enum; Type: TYPE; Schema: public; Owner: exchange
---
-
-CREATE TYPE public.access_control_type_enum AS ENUM (
-    'public',
-    'restricted'
-);
-
---
 -- Name: audit_status_type_enum; Type: TYPE; Schema: public; Owner: exchange
 --
 
@@ -252,40 +243,68 @@ CREATE TABLE public.members (
 ALTER TABLE public.members OWNER TO exchange;
 
 --
--- Name: policy_metadata; Type: TABLE; Schema: public; Owner: exchange
+-- Name: field_policies; Type: TABLE; Schema: public; Owner: exchange
+-- OpenNDX v0.7.0 Policy Decision Point tables, as in cmd/pdp/schema.sql.
 --
 
-CREATE TABLE public.policy_metadata (
-                                        id uuid DEFAULT gen_random_uuid() NOT NULL,
-                                        schema_id character varying(255) NOT NULL,
-                                        field_name text NOT NULL,
-                                        display_name text,
-                                        description text,
-                                        source public.source_enum DEFAULT 'fallback'::public.source_enum NOT NULL,
-                                        is_owner boolean DEFAULT false NOT NULL,
-                                        access_control_type public.access_control_type_enum DEFAULT 'restricted'::public.access_control_type_enum NOT NULL,
-                                        allow_list jsonb DEFAULT '{}'::jsonb NOT NULL,
-                                        created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                                        updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                                        owner public.owner_enum,
-                                        CONSTRAINT policy_metadata_owner_requirements CHECK ((((is_owner = true) AND (owner IS NULL)) OR ((is_owner = false) AND (owner IS NOT NULL))))
+CREATE TABLE public.field_policies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    schema_id character varying(255) NOT NULL,
+    field_name text NOT NULL,
+    display_name text,
+    description text,
+    source public.source_enum DEFAULT 'fallback'::public.source_enum NOT NULL,
+    -- The application needs an unexpired access grant for the field
+    requires_allowlist boolean NOT NULL,
+    -- The owner must consent, unless the application holds a consent bypass grant
+    requires_consent boolean NOT NULL,
+    owner public.owner_enum,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT field_policies_pkey PRIMARY KEY (id)
 );
 
 
-ALTER TABLE public.policy_metadata OWNER TO exchange;
+ALTER TABLE public.field_policies OWNER TO exchange;
 
 --
--- Name: COLUMN policy_metadata.allow_list; Type: COMMENT; Schema: public; Owner: exchange
+-- Name: idx_field_policies_schema_field; Type: INDEX; Schema: public; Owner: exchange
+-- One policy record per field of a schema
 --
 
-COMMENT ON COLUMN public.policy_metadata.allow_list IS 'HashMap having key:application_id value:Object having two attributes such as expired_at, updated_at';
+CREATE UNIQUE INDEX idx_field_policies_schema_field ON public.field_policies USING btree (schema_id, field_name);
 
 
 --
--- Name: CONSTRAINT policy_metadata_owner_requirements ON policy_metadata; Type: COMMENT; Schema: public; Owner: exchange
+-- Name: access_grants; Type: TABLE; Schema: public; Owner: exchange
+-- One application's access to one field. Revoked grants are kept as a record.
+-- A consent bypass grant records the legal basis for skipping consent.
 --
 
-COMMENT ON CONSTRAINT policy_metadata_owner_requirements ON public.policy_metadata IS 'Ensures owner is specified when is_owner is false, and owner is not specified when is_owner is true';
+CREATE TABLE public.access_grants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    schema_id character varying(255) NOT NULL,
+    field_name text NOT NULL,
+    application_id text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    consent_bypass boolean DEFAULT false NOT NULL,
+    legal_basis text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT access_grants_pkey PRIMARY KEY (id),
+    CONSTRAINT access_grants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text]))),
+    CONSTRAINT access_grants_field_fkey FOREIGN KEY (schema_id, field_name)
+        REFERENCES public.field_policies(schema_id, field_name) ON DELETE CASCADE,
+    CONSTRAINT access_grants_bypass_check CHECK (((NOT consent_bypass) OR (legal_basis IS NOT NULL)))
+);
+
+
+ALTER TABLE public.access_grants OWNER TO exchange;
+
+CREATE UNIQUE INDEX idx_access_grants_active ON public.access_grants USING btree (schema_id, field_name, application_id, consent_bypass) WHERE (status = 'active'::text);
+
+CREATE INDEX idx_access_grants_application ON public.access_grants USING btree (application_id, schema_id);
 
 
 --
@@ -416,20 +435,51 @@ mem_47578e70-2a1b-417c-b5f0-cb7819c59817	ORG 1	org1@ndx.fl	+100113985890	2025-10
 
 
 --
--- Data for Name: policy_metadata; Type: TABLE DATA; Schema: public; Owner: exchange
+-- Data for Name: field_policies; Type: TABLE DATA; Schema: public; Owner: exchange
+-- Converted from the OpenNDX v0.6 seed: restricted fields without
+-- isOwner require both the allow-list and the owner's consent.
 --
 
-COPY public.policy_metadata (id, schema_id, field_name, display_name, description, source, is_owner, access_control_type, allow_list, created_at, updated_at, owner) FROM stdin;
-488e0205-3949-4460-b3d2-5403d2b82ea6	drp-schema-v1	person.permanentAddress	Residing Address	Person's Residential Address	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00	citizen
-ae05f09b-432e-4473-8da1-9633c3da9c72	abc-212	getPersonInfo.district	Birth District of Person	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00	citizen
-2cf4f41f-7934-4a49-9a03-9f851f395436	abc-212	getPersonInfo.birthPlace	Birth Place of Person	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00	citizen
-5719f279-ee92-4536-9e0b-5443aa064cf8	abc-212	getPersonInfo.brNo	Birth Registration Number	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00	citizen
-171584a4-36ed-4989-a8cf-da292d908bb6	abc-212	getPersonInfo.birthDate	Birth Date	Person's Birth Date	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00	citizen
-8180a601-b67d-400b-8528-012797d9d6d8	abc-212	getPersonInfo.sex	Person's Sex	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00	citizen
-10d4da3e-8d7d-42bb-97ca-30429ef895cd	drp-schema-v1	person.profession	Your Profession	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:10:48.459932+00	2025-10-30 04:10:48.459932+00	citizen
-8c07811e-6573-4826-bcb3-8f36a52bb810	drp-schema-v1	person.otherNames	Person's Other Names	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:10:48.459932+00	2025-10-30 04:10:48.459932+00	citizen
-96c4cce8-5a0a-42cb-9698-910c4ec45305	abc-212	getPersonInfo.name	Person's Name	\N	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00	citizen
-d45c4b6c-8bbd-4ee8-9acd-0b71015aaeb9	drp-schema-v1	person.fullName	Full Name	Person's Full Name	primary	f	restricted	{"passport-app": {"expires_at": "2026-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}, "7a16e556-70a1-4014-8ec1-9397a5212fee": {"expires_at": "2025-11-25T14:26:01.382878+05:30", "updated_at": "2025-10-25T14:26:01.382879+05:30"}}	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00	citizen
+COPY public.field_policies (id, schema_id, field_name, display_name, description, source, requires_allowlist, requires_consent, owner, created_at, updated_at) FROM stdin;
+488e0205-3949-4460-b3d2-5403d2b82ea6	drp-schema-v1	person.permanentAddress	Residing Address	Person's Residential Address	primary	t	t	citizen	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00
+ae05f09b-432e-4473-8da1-9633c3da9c72	abc-212	getPersonInfo.district	Birth District of Person	\N	primary	t	t	citizen	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00
+2cf4f41f-7934-4a49-9a03-9f851f395436	abc-212	getPersonInfo.birthPlace	Birth Place of Person	\N	primary	t	t	citizen	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00
+5719f279-ee92-4536-9e0b-5443aa064cf8	abc-212	getPersonInfo.brNo	Birth Registration Number	\N	primary	t	t	citizen	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00
+171584a4-36ed-4989-a8cf-da292d908bb6	abc-212	getPersonInfo.birthDate	Birth Date	Person's Birth Date	primary	t	t	citizen	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00
+8180a601-b67d-400b-8528-012797d9d6d8	abc-212	getPersonInfo.sex	Person's Sex	\N	primary	t	t	citizen	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00
+10d4da3e-8d7d-42bb-97ca-30429ef895cd	drp-schema-v1	person.profession	Your Profession	\N	primary	t	t	citizen	2025-10-30 04:10:48.459932+00	2025-10-30 04:10:48.459932+00
+8c07811e-6573-4826-bcb3-8f36a52bb810	drp-schema-v1	person.otherNames	Person's Other Names	\N	primary	t	t	citizen	2025-10-30 04:10:48.459932+00	2025-10-30 04:10:48.459932+00
+96c4cce8-5a0a-42cb-9698-910c4ec45305	abc-212	getPersonInfo.name	Person's Name	\N	primary	t	t	citizen	2025-10-30 04:07:00.056146+00	2025-10-30 04:07:00.056146+00
+d45c4b6c-8bbd-4ee8-9acd-0b71015aaeb9	drp-schema-v1	person.fullName	Full Name	Person's Full Name	primary	t	t	citizen	2025-10-28 14:01:48.915218+00	2025-10-28 14:01:48.915218+00
+\.
+
+
+--
+-- Data for Name: access_grants; Type: TABLE DATA; Schema: public; Owner: exchange
+-- One active grant per v0.6 allow-list entry, with the same expiry.
+--
+
+COPY public.access_grants (schema_id, field_name, application_id, expires_at, created_at, updated_at) FROM stdin;
+drp-schema-v1	person.permanentAddress	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.permanentAddress	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.district	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.district	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.birthPlace	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.birthPlace	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.brNo	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.brNo	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.birthDate	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.birthDate	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.sex	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.sex	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.profession	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.profession	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.otherNames	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.otherNames	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.name	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+abc-212	getPersonInfo.name	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.fullName	passport-app	2031-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
+drp-schema-v1	person.fullName	7a16e556-70a1-4014-8ec1-9397a5212fee	2025-11-25T14:26:01.382878+05:30	2025-10-25T14:26:01.382879+05:30	2025-10-25T14:26:01.382879+05:30
 \.
 
 
@@ -540,29 +590,6 @@ ALTER TABLE ONLY public.members
 
 
 --
--- Name: policy_metadata policy_metadata_pk; Type: CONSTRAINT; Schema: public; Owner: exchange
---
-
-ALTER TABLE ONLY public.policy_metadata
-    ADD CONSTRAINT policy_metadata_pk PRIMARY KEY (id);
-
-
---
--- Name: policy_metadata policy_metadata_schema_field_unique; Type: CONSTRAINT; Schema: public; Owner: exchange
---
-
-ALTER TABLE ONLY public.policy_metadata
-    ADD CONSTRAINT policy_metadata_schema_field_unique UNIQUE (schema_id, field_name);
-
-
---
--- Name: CONSTRAINT policy_metadata_schema_field_unique ON policy_metadata; Type: COMMENT; Schema: public; Owner: exchange
---
-
-COMMENT ON CONSTRAINT policy_metadata_schema_field_unique ON public.policy_metadata IS 'Ensures unique combination of schema_id and field_name';
-
-
---
 -- Name: schema_submissions schema_submissions_pk; Type: CONSTRAINT; Schema: public; Owner: exchange
 --
 
@@ -660,13 +687,6 @@ CREATE INDEX idx_audit_logs_timestamp ON public.audit_logs USING btree ("timesta
 
 
 --
--- Name: idx_policy_metadata_schema_field; Type: INDEX; Schema: public; Owner: exchange
---
-
-CREATE INDEX idx_policy_metadata_schema_field ON public.policy_metadata USING btree (schema_id, field_name);
-
-
---
 -- Name: application_submissions application_submissions_applications_application_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: exchange
 --
 
@@ -704,14 +724,6 @@ ALTER TABLE ONLY public.audit_logs
 
 ALTER TABLE ONLY public.audit_logs
     ADD CONSTRAINT audit_logs_provider_schemas_schema_id_fk FOREIGN KEY (schema_id) REFERENCES public.schemas(schema_id);
-
-
---
--- Name: policy_metadata policy_metadata_provider_schemas_schema_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: exchange
---
-
-ALTER TABLE ONLY public.policy_metadata
-    ADD CONSTRAINT policy_metadata_provider_schemas_schema_id_fk FOREIGN KEY (schema_id) REFERENCES public.schemas(schema_id);
 
 
 --
