@@ -5,8 +5,8 @@ This guide will help you set up and run the OpenNDX Farajaland reference impleme
 The PDP, Consent Engine, Consent Portal and Orchestration Engine images are pinned
 to OpenNDX **v0.7.0**. ThunderID is pinned to **1.1.1**, newer than the 1.0.1
 that the openndx-core v0.7.0 release uses.
-The passport app is built from this checkout at startup so it requests the OAuth
-audience required by the upgraded Orchestration Engine.
+The member services and the passport app run from images published to
+`ghcr.io/openndx`; see [Member Images](#member-images).
 
 ## Prerequisites
 
@@ -253,9 +253,7 @@ curl -sS http://localhost:3000/api/health
 
 Expected: the OpenNDX services are running and healthy, the two ThunderID init/setup
 containers have exited with code 0, and the passport health endpoint returns
-`"status":"ok"`. The published Civil Registry image,
-`ghcr.io/openndx/rgd-api:v0.1.0`, may report unhealthy even while serving
-GraphQL requests; the data checks below verify it separately.
+`"status":"ok"`.
 
 Open `http://localhost:8090` to check that ThunderID is reachable.
 Allow popups from `http://localhost:3000` so the passport app can open consent requests.
@@ -494,6 +492,50 @@ python -m uvicorn main:app --port 8080
 cd members/identity-registry/data-sources/identity-registry-adapter
 bal run
 ```
+
+## Member Images
+
+`members/run-member-services.sh` (started by `./init.sh`) runs these images,
+published for `linux/amd64` and `linux/arm64` by
+`.github/workflows/release-images.yml`, unless a service is set to build
+locally (below):
+
+| Service | Image | Source |
+|---|---|---|
+| Identity Registry API | `ghcr.io/openndx/identity-registry-api:v0.1.0` | `members/identity-registry/data-sources/identity-registry-api` |
+| Identity Registry Adapter | `ghcr.io/openndx/identity-registry-adapter:v0.1.0` | `members/identity-registry/data-sources/identity-registry-adapter` |
+| Civil Registry API | `ghcr.io/openndx/civil-registry-api:v0.1.0` | `members/civil-registry/data-sources/civil-registry-api` |
+| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.0` | `members/immigration/applications/online-passport-app` |
+
+The mock data and the Identity Registry API's `Config.toml` are mounted from
+this checkout, so editing them needs no new image.
+
+Choose per service in the "Member services" section of `ndx/.env`:
+
+```bash
+IDENTITY_REGISTRY_BUILD_LOCAL=false          # false: pull the published image
+IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL=false  # true: build it from this checkout
+CIVIL_REGISTRY_BUILD_LOCAL=false
+PASSPORT_APP_BUILD_LOCAL=false
+```
+
+- **Build from this checkout**: set a service's `*_BUILD_LOCAL` to `true`, for
+  example while changing it. The image is built on every start and tagged
+  `farajaland/<name>:local`, so it never replaces the published image on your
+  machine. `./members/run-member-services.sh build-run` builds and runs all
+  four. Docker compiles the Ballerina services, so no local Ballerina is needed.
+- **Use another published image**: change `IDENTITY_REGISTRY_IMAGE`,
+  `IDENTITY_REGISTRY_ADAPTER_IMAGE`, `CIVIL_REGISTRY_IMAGE` or
+  `PASSPORT_APP_IMAGE` in the same section.
+- A variable set in your shell overrides `ndx/.env` for one run, e.g.
+  `PASSPORT_APP_BUILD_LOCAL=true ./init.sh`. Any value other than `true` or
+  `false` stops the script with an error.
+- **Release a new version**: push a tag named `<image>/v<version>`, for example
+  `git tag identity-registry-adapter/v0.2.0 && git push origin
+  identity-registry-adapter/v0.2.0`, or run *Release member images* from the
+  Actions tab. Push each tag separately: GitHub starts no workflows for a push
+  of more than three tags. Then update the image in `ndx/.env` and the
+  default in `members/run-member-services.sh`.
 
 ## Database Migrations
 

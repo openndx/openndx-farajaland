@@ -407,10 +407,9 @@ git push origin civil-registry-api/v0.2.0
 ```
 
 This publishes `ghcr.io/openndx/civil-registry-api:v0.2.0`. The workflow can also
-be run manually from the Actions tab. The `CIVIL_REGISTRY_IMAGE` default in
-`members/run-member-services.sh` is still `ghcr.io/openndx/rgd-api:v0.1.0`, an
-image released under the service's old name. After releasing, update that default,
-or override it for a single run:
+be run manually from the Actions tab. After releasing, update the
+`CIVIL_REGISTRY_IMAGE` default in `members/run-member-services.sh`, or override
+it for a single run:
 
 ```bash
 CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.2.0 ./members/run-member-services.sh civil-registry

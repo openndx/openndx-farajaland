@@ -11,7 +11,7 @@
       "sex": "Male",
       "nic": "suresh@ndx.fl",
       "are_parents_married": true,
-      "is_grandfather_born_in_sri_lanka": true,
+      "is_grandfather_born_in_country": true,
       "father": {
         "name": "John Fernando",
         "nic": "john@ndx.fl",
@@ -48,7 +48,7 @@
       "sex": "Male",
       "nic": "gomesh@ndx.fl",
       "are_parents_married": true,
-      "is_grandfather_born_in_sri_lanka": false,
+      "is_grandfather_born_in_country": false,
       "father": {
         "name": "Robert Fernando",
         "nic": "robert@ndx.fl",
@@ -85,7 +85,7 @@
       "sex": "Male",
       "nic": "naresh@ndx.fl",
       "are_parents_married": false,
-      "is_grandfather_born_in_sri_lanka": true,
+      "is_grandfather_born_in_country": true,
       "father": {
         "name": "David Fernando",
         "nic": "david@ndx.fl",
@@ -122,7 +122,7 @@
       "sex": "Male",
       "nic": "ramesh@ndx.fl",
       "are_parents_married": true,
-      "is_grandfather_born_in_sri_lanka": true,
+      "is_grandfather_born_in_country": true,
       "father": {
         "name": "Michael Fernando",
         "nic": "michael@ndx.fl",
@@ -159,7 +159,7 @@
       "sex": "Male",
       "nic": "dinesh@ndx.fl",
       "are_parents_married": false,
-      "is_grandfather_born_in_sri_lanka": false,
+      "is_grandfather_born_in_country": false,
       "father": {
         "name": "William Fernando",
         "nic": "william@ndx.fl",
@@ -196,7 +196,7 @@
       "sex": "Male",
       "nic": "mahesh@ndx.fl",
       "are_parents_married": true,
-      "is_grandfather_born_in_sri_lanka": true,
+      "is_grandfather_born_in_country": true,
       "father": {
         "name": "Thomas Fernando",
         "nic": "thomas@ndx.fl",

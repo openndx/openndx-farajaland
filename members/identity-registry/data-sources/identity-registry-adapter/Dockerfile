@@ -18,7 +18,7 @@ COPY --from=build /home/ballerina/src/target/bin/identity_registry_adapter.jar a
 USER ballerina
 EXPOSE 9091
 # Config.toml is left out on purpose: its serviceURL is localhost, which inside
-# a container is the container itself. The Identity Registry API's URL and key
-# come from CHOREO_MOCK_DRP_CONNECTION_SERVICEURL and
-# CHOREO_MOCK_DRP_CONNECTION_APIKEY (see members/run-member-services.sh).
+# a container is the container itself. members/run-member-services.sh sets the
+# Identity Registry API's URL and key with BAL_CONFIG_VAR_SERVICEURL and
+# BAL_CONFIG_VAR_CHOREOAPIKEY.
 ENTRYPOINT ["java", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
