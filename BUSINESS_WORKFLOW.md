@@ -270,8 +270,8 @@ NDX authenticates to each data provider:
 ```json
 {
   "fullName": "Suresh Fernando",
-  "dateOfBirth": "1990-03-15",
-  "birthPlace": "Central City"
+  "dateOfBirth": "1995-12-01",
+  "birthPlace": "Central General Hospital"
 }
 ```
 
@@ -291,8 +291,8 @@ NDX combines the results from both sources:
   "data": {
     "personInfo": {
       "fullName": "Suresh Fernando",
-      "dateOfBirth": "1990-03-15",
-      "birthPlace": "Central City",
+      "dateOfBirth": "1995-12-01",
+      "birthPlace": "Central General Hospital",
       "address": "105 Main Street, Central City",
       "profession": "Software Engineer"
     }
@@ -333,8 +333,9 @@ NDX records the data access event:
 ╠════════════════════════════════════════════════════╣
 ║                                                    ║
 ║  Full Name: Suresh Fernando          [verified ✓]  ║
-║  Date of Birth: 1990-03-15           [verified ✓]  ║
-║  Birth Place: Central City           [verified ✓]  ║
+║  Date of Birth: 1995-12-01           [verified ✓]  ║
+║  Birth Place:                        [verified ✓]  ║
+║    Central General Hospital                        ║
 ║  Current Address:                    [verified ✓]  ║
 ║    105 Main Street, Central City                   ║
 ║  Profession: Software Engineer       [verified ✓]  ║

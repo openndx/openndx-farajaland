@@ -271,7 +271,8 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 4. The passport app should retry automatically and fill the form. Check surname
    **Fernando**, other names **Suresh**, address
    **105 Main Street, Central City 10000**, profession **Software Engineer**,
-   birth certificate **BR2025001**, and birthplace **Central General Hospital**.
+   date of birth **1995-12-01**, birth certificate **BR1995001**, and birthplace
+   **Central General Hospital**.
    These combine DRP and RGD records for **Suresh Fernando**.
 5. Open `http://localhost:5173/consents` in another tab, select the approved
    passport consent, and revoke it. Return to the passport app, reload the page,

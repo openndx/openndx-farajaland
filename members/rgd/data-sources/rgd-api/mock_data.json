@@ -2,10 +2,10 @@
   "birth": [
     {
       "id": 1,
-      "br_no": "BR2025001",
+      "br_no": "BR1995001",
       "district": "Central",
       "division": "Central North",
-      "birth_date": "2020-05-12",
+      "birth_date": "1995-12-01",
       "birth_place": "Central General Hospital",
       "name": "Suresh Fernando",
       "sex": "Male",
@@ -15,19 +15,19 @@
       "father": {
         "name": "John Fernando",
         "nic": "john@ndx.fl",
-        "birth_date": "1985-08-21",
+        "birth_date": "1965-08-21",
         "birth_place": "Central City",
         "race": "Citizen"
       },
       "mother": {
         "name": "Jane Fernando",
         "nic": "jane@ndx.fl",
-        "birth_date": "1987-02-11",
+        "birth_date": "1967-02-11",
         "birth_place": "Southport",
         "race": "Citizen",
-        "age_at_birth": 33
+        "age_at_birth": 28
       },
-      "date_of_registration": "2020-05-15",
+      "date_of_registration": "1995-12-04",
       "registrar_signature": "R. Fernando",
       "informant": {
         "signature": "John Fernando",
@@ -39,10 +39,10 @@
     },
     {
       "id": 2,
-      "br_no": "BR2025002",
+      "br_no": "BR1990002",
       "district": "Northern",
       "division": "Northern Urban",
-      "birth_date": "2021-01-20",
+      "birth_date": "1990-07-22",
       "birth_place": "Northern General Hospital",
       "name": "Gomesh Fernando",
       "sex": "Male",
@@ -52,19 +52,19 @@
       "father": {
         "name": "Robert Fernando",
         "nic": "robert@ndx.fl",
-        "birth_date": "1982-04-10",
+        "birth_date": "1962-04-10",
         "birth_place": "Northville",
         "race": "Citizen"
       },
       "mother": {
         "name": "Mary Fernando",
         "nic": "mary@ndx.fl",
-        "birth_date": "1985-12-05",
+        "birth_date": "1965-12-05",
         "birth_place": "Eastbrook",
         "race": "Citizen",
-        "age_at_birth": 36
+        "age_at_birth": 24
       },
-      "date_of_registration": "2021-01-22",
+      "date_of_registration": "1990-07-24",
       "registrar_signature": "M. Fernando",
       "informant": {
         "signature": "Robert Fernando",
@@ -76,10 +76,10 @@
     },
     {
       "id": 3,
-      "br_no": "BR2025003",
+      "br_no": "BR1978003",
       "district": "Southern",
       "division": "Southern Central",
-      "birth_date": "2019-08-09",
+      "birth_date": "1978-11-05",
       "birth_place": "Southern Teaching Hospital",
       "name": "Naresh Fernando",
       "sex": "Male",
@@ -89,19 +89,19 @@
       "father": {
         "name": "David Fernando",
         "nic": "david@ndx.fl",
-        "birth_date": "1980-06-02",
+        "birth_date": "1950-06-02",
         "birth_place": "Southport",
         "race": "Citizen"
       },
       "mother": {
         "name": "Sarah Fernando",
         "nic": "sarah@ndx.fl",
-        "birth_date": "1982-11-20",
+        "birth_date": "1952-11-20",
         "birth_place": "Westfield",
         "race": "Citizen",
-        "age_at_birth": 37
+        "age_at_birth": 25
       },
-      "date_of_registration": "2019-08-12",
+      "date_of_registration": "1978-11-08",
       "registrar_signature": "P. Fernando",
       "informant": {
         "signature": "Sarah Fernando",
@@ -113,10 +113,10 @@
     },
     {
       "id": 4,
-      "br_no": "BR2025004",
+      "br_no": "BR1992004",
       "district": "Eastern",
       "division": "Eastern South",
-      "birth_date": "2020-01-15",
+      "birth_date": "1992-01-30",
       "birth_place": "Eastern General Hospital",
       "name": "Ramesh Fernando",
       "sex": "Male",
@@ -126,19 +126,19 @@
       "father": {
         "name": "Michael Fernando",
         "nic": "michael@ndx.fl",
-        "birth_date": "1985-05-10",
+        "birth_date": "1962-05-10",
         "birth_place": "Eastbrook",
         "race": "Citizen"
       },
       "mother": {
         "name": "Emily Fernando",
         "nic": "emily@ndx.fl",
-        "birth_date": "1988-08-20",
+        "birth_date": "1965-08-20",
         "birth_place": "Central City",
         "race": "Citizen",
-        "age_at_birth": 32
+        "age_at_birth": 26
       },
-      "date_of_registration": "2020-01-20",
+      "date_of_registration": "1992-02-04",
       "registrar_signature": "https://example.com/signatures/michael@ndx.fl",
       "informant": {
         "signature": "https://example.com/signatures/michael@ndx.fl",
@@ -150,10 +150,10 @@
     },
     {
       "id": 5,
-      "br_no": "BR2025005",
+      "br_no": "BR1985005",
       "district": "Western",
       "division": "Western Central",
-      "birth_date": "2021-03-30",
+      "birth_date": "1985-09-18",
       "birth_place": "Western Teaching Hospital",
       "name": "Dinesh Fernando",
       "sex": "Male",
@@ -163,19 +163,19 @@
       "father": {
         "name": "William Fernando",
         "nic": "william@ndx.fl",
-        "birth_date": "1983-09-15",
+        "birth_date": "1955-09-15",
         "birth_place": "Westfield",
         "race": "Citizen"
       },
       "mother": {
         "name": "Laura Fernando",
         "nic": "laura@ndx.fl",
-        "birth_date": "1986-01-25",
+        "birth_date": "1958-01-25",
         "birth_place": "Northville",
         "race": "Citizen",
-        "age_at_birth": 35
+        "age_at_birth": 27
       },
-      "date_of_registration": "2021-04-02",
+      "date_of_registration": "1985-09-21",
       "registrar_signature": "K. Fernando",
       "informant": {
         "signature": "Laura Fernando",
@@ -183,6 +183,43 @@
         "residence": "14 Hill Street, Westfield",
         "relationship_to_baby": "Mother",
         "nic": "laura@ndx.fl"
+      }
+    },
+    {
+      "id": 6,
+      "br_no": "BR1970006",
+      "district": "Harbor",
+      "division": "Harbor Central",
+      "birth_date": "1970-04-09",
+      "birth_place": "Harbor General Hospital",
+      "name": "Mahesh Fernando",
+      "sex": "Male",
+      "nic": "mahesh@ndx.fl",
+      "are_parents_married": true,
+      "is_grandfather_born_in_sri_lanka": true,
+      "father": {
+        "name": "Thomas Fernando",
+        "nic": "thomas@ndx.fl",
+        "birth_date": "1942-03-03",
+        "birth_place": "Harbor City",
+        "race": "Citizen"
+      },
+      "mother": {
+        "name": "Anne Fernando",
+        "nic": "anne@ndx.fl",
+        "birth_date": "1945-06-14",
+        "birth_place": "Central City",
+        "race": "Citizen",
+        "age_at_birth": 24
+      },
+      "date_of_registration": "1970-04-13",
+      "registrar_signature": "T. Fernando",
+      "informant": {
+        "signature": "Thomas Fernando",
+        "full_name": "Thomas Fernando",
+        "residence": "88 River Road, Harbor City",
+        "relationship_to_baby": "Father",
+        "nic": "thomas@ndx.fl"
       }
     }
   ]

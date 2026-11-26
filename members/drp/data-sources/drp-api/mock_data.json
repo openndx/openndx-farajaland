@@ -14,7 +14,7 @@
     "fullName": "Gomesh Fernando",
     "otherNames": "Gomesh",
     "sex": "MALE",
-    "dateOfBirth": "1995-12-01",
+    "dateOfBirth": "1990-07-22",
     "permanentAddress": "10 Park Avenue, Northville 20000",
     "profession": "Pilot",
     "photo": "https://example.com/photo.jpg"
@@ -24,7 +24,7 @@
     "fullName": "Naresh Fernando",
     "otherNames": "Naresh",
     "sex": "MALE",
-    "dateOfBirth": "1995-12-01",
+    "dateOfBirth": "1978-11-05",
     "permanentAddress": "1034 Oak Road, Southport 30000",
     "profession": "Army Commander",
     "photo": "https://example.com/photo.jpg"
@@ -34,7 +34,7 @@
     "fullName": "Ramesh Fernando",
     "otherNames": "Ramesh",
     "sex": "MALE",
-    "dateOfBirth": "1995-12-01",
+    "dateOfBirth": "1992-01-30",
     "permanentAddress": "42 Lake View, Eastbrook 40000",
     "profession": "Civil Engineer",
     "photo": "https://example.com/photo.jpg"
@@ -44,7 +44,7 @@
     "fullName": "Dinesh Fernando",
     "otherNames": "Dinesh",
     "sex": "MALE",
-    "dateOfBirth": "1995-12-01",
+    "dateOfBirth": "1985-09-18",
     "permanentAddress": "14 Hill Street, Westfield 50000",
     "profession": "Doctor",
     "photo": "https://example.com/photo.jpg"
@@ -54,7 +54,7 @@
     "fullName": "Mahesh Fernando",
     "otherNames": "Mahesh",
     "sex": "MALE",
-    "dateOfBirth": "1995-12-01",
+    "dateOfBirth": "1970-04-09",
     "permanentAddress": "88 River Road, Harbor City 60000",
     "profession": "Politician",
     "photo": "https://example.com/photo.jpg"
