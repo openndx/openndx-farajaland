@@ -749,24 +749,18 @@ CLEAN_START=false ./init.sh
 
 ### Manual Cleanup
 
-If you need to stop services manually:
+If you need to stop services manually, run these from the repository root:
 
 ```bash
+# Stop and remove the member service containers (DRP, DRP Adapter, RGD and
+# the passport app), which run outside Docker Compose
+./members/run-member-services.sh stop
+
 # Stop Docker Compose services (preserve volumes)
-cd ndx
-docker compose down
+(cd ndx && docker compose down)
 
-# Stop Docker Compose services and remove volumes (clean start)
-cd ndx
-docker compose down -v
-
-# Stop member services (if running in background)
-# Find and kill the processes
-ps aux | grep uvicorn  # RGD
-ps aux | grep ballerina  # DRP
-
-# Kill the processes
-kill <PID>
+# Or stop them and remove volumes (clean start)
+(cd ndx && docker compose down -v)
 ```
 
 ### Complete Cleanup (Remove Data)
