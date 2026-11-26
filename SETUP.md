@@ -497,7 +497,8 @@ bal run
 
 `members/run-member-services.sh` (started by `./init.sh`) runs these images,
 published for `linux/amd64` and `linux/arm64` by
-`.github/workflows/release-images.yml`:
+`.github/workflows/release-images.yml`, unless a service is set to build
+locally (below):
 
 | Service | Image | Source |
 |---|---|---|
@@ -509,19 +510,32 @@ published for `linux/amd64` and `linux/arm64` by
 The mock data and the Identity Registry API's `Config.toml` are mounted from
 this checkout, so editing them needs no new image.
 
-- **Use another image** for one run with `IDENTITY_REGISTRY_IMAGE`,
+Choose per service in the "Member services" section of `ndx/.env`:
+
+```bash
+IDENTITY_REGISTRY_BUILD_LOCAL=false          # false: pull the published image
+IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL=false  # true: build it from this checkout
+CIVIL_REGISTRY_BUILD_LOCAL=false
+PASSPORT_APP_BUILD_LOCAL=false
+```
+
+- **Build from this checkout**: set a service's `*_BUILD_LOCAL` to `true`, for
+  example while changing it. The image is built on every start and tagged
+  `farajaland/<name>:local`, so it never replaces the published image on your
+  machine. `./members/run-member-services.sh build-run` builds and runs all
+  four. Docker compiles the Ballerina services, so no local Ballerina is needed.
+- **Use another published image**: change `IDENTITY_REGISTRY_IMAGE`,
   `IDENTITY_REGISTRY_ADAPTER_IMAGE`, `CIVIL_REGISTRY_IMAGE` or
-  `PASSPORT_APP_IMAGE`.
-- **Build from this checkout**: `./members/run-member-services.sh build-run`
-  builds and runs all four; `PASSPORT_APP_BUILD_LOCAL=true` builds only the
-  passport app. Docker compiles the Ballerina services, so no local Ballerina
-  is needed.
+  `PASSPORT_APP_IMAGE` in the same section.
+- A variable set in your shell overrides `ndx/.env` for one run, e.g.
+  `PASSPORT_APP_BUILD_LOCAL=true ./init.sh`. Any value other than `true` or
+  `false` stops the script with an error.
 - **Release a new version**: push a tag named `<image>/v<version>`, for example
   `git tag identity-registry-adapter/v0.2.0 && git push origin
   identity-registry-adapter/v0.2.0`, or run *Release member images* from the
   Actions tab. Push each tag separately: GitHub starts no workflows for a push
-  of more than three tags. Then update the default in
-  `members/run-member-services.sh`.
+  of more than three tags. Then update the image in `ndx/.env` and the
+  default in `members/run-member-services.sh`.
 
 ## Database Migrations
 

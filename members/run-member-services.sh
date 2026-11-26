@@ -38,29 +38,55 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Member images, published for linux/amd64 and linux/arm64 by
-# .github/workflows/release-images.yml. Override any of them to run another
-# version or a build from another registry.
-IDENTITY_REGISTRY_IMAGE="${IDENTITY_REGISTRY_IMAGE:-ghcr.io/openndx/identity-registry-api:v0.1.0}"
-IDENTITY_REGISTRY_ADAPTER_IMAGE="${IDENTITY_REGISTRY_ADAPTER_IMAGE:-ghcr.io/openndx/identity-registry-adapter:v0.1.0}"
-CIVIL_REGISTRY_IMAGE="${CIVIL_REGISTRY_IMAGE:-ghcr.io/openndx/civil-registry-api:v0.1.0}"
-PASSPORT_APP_IMAGE="${PASSPORT_APP_IMAGE:-ghcr.io/openndx/online-passport-app:v0.1.0}"
-# Set to true to build the passport app from this checkout instead of pulling
-# its published image, e.g. while changing the app.
-PASSPORT_APP_BUILD_LOCAL="${PASSPORT_APP_BUILD_LOCAL:-false}"
-
-# Container names
-IDENTITY_REGISTRY_CONTAINER="identity-registry-api"
-IDENTITY_REGISTRY_ADAPTER_CONTAINER="identity-registry-adapter"
-CIVIL_REGISTRY_CONTAINER="civil-registry-api"
-PASSPORT_APP_CONTAINER="online-passport-app"
-
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IDENTITY_REGISTRY_DIR="${SCRIPT_DIR}/identity-registry/data-sources/identity-registry-api"
 IDENTITY_REGISTRY_ADAPTER_DIR="${SCRIPT_DIR}/identity-registry/data-sources/identity-registry-adapter"
 CIVIL_REGISTRY_DIR="${SCRIPT_DIR}/civil-registry/data-sources/civil-registry-api"
 PASSPORT_APP_DIR="${SCRIPT_DIR}/immigration/applications/online-passport-app"
+NDX_ENV_FILE="${SCRIPT_DIR}/../ndx/.env"
+
+# Sets a variable from the environment if it is set there, otherwise from
+# ndx/.env, otherwise to the given default. As in Docker Compose, a quoted
+# value keeps everything between its quotes, and an unquoted value ends at
+# " #" (an inline comment).
+setting() {
+    local name=$1 default=$2 value=""
+    if [ -n "${!name+x}" ]; then
+        value=${!name}
+    elif [ -f "$NDX_ENV_FILE" ]; then
+        value=$(tr -d '\r' < "$NDX_ENV_FILE" | sed -n "s/^${name}=//p" | tail -n 1 |
+            sed -E -e 's/^"([^"]*)".*$/\1/' -e 't' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//')
+    fi
+    printf -v "$name" '%s' "${value:-$default}"
+}
+
+# Member images. Each service runs its image published to ghcr.io/openndx (for
+# linux/amd64 and linux/arm64, by .github/workflows/release-images.yml) unless
+# its *_BUILD_LOCAL setting is true, which builds the image from this checkout
+# instead. Set these in ndx/.env or the environment.
+setting IDENTITY_REGISTRY_IMAGE ghcr.io/openndx/identity-registry-api:v0.1.0
+setting IDENTITY_REGISTRY_ADAPTER_IMAGE ghcr.io/openndx/identity-registry-adapter:v0.1.0
+setting CIVIL_REGISTRY_IMAGE ghcr.io/openndx/civil-registry-api:v0.1.0
+setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.0
+setting IDENTITY_REGISTRY_BUILD_LOCAL false
+setting IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL false
+setting CIVIL_REGISTRY_BUILD_LOCAL false
+setting PASSPORT_APP_BUILD_LOCAL false
+BUILD_LOCAL_SETTINGS="IDENTITY_REGISTRY_BUILD_LOCAL IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL CIVIL_REGISTRY_BUILD_LOCAL PASSPORT_APP_BUILD_LOCAL"
+
+# Images built from this checkout get a local tag, so a local build never
+# replaces a published image in Docker's image cache.
+IDENTITY_REGISTRY_LOCAL_IMAGE="farajaland/identity-registry-api:local"
+IDENTITY_REGISTRY_ADAPTER_LOCAL_IMAGE="farajaland/identity-registry-adapter:local"
+CIVIL_REGISTRY_LOCAL_IMAGE="farajaland/civil-registry-api:local"
+PASSPORT_APP_LOCAL_IMAGE="farajaland/online-passport-app:local"
+
+# Container names
+IDENTITY_REGISTRY_CONTAINER="identity-registry-api"
+IDENTITY_REGISTRY_ADAPTER_CONTAINER="identity-registry-adapter"
+CIVIL_REGISTRY_CONTAINER="civil-registry-api"
+PASSPORT_APP_CONTAINER="online-passport-app"
 
 # Function to print colored messages
 print_info() {
@@ -155,24 +181,49 @@ build_image() {
     return 0
 }
 
+# Gets the image a service runs and stores it in PREPARED_IMAGE: builds it from
+# this checkout when the service's *_BUILD_LOCAL setting is true, otherwise pulls
+# the published image, falling back to a copy already in Docker's image cache.
+# Usage: prepare_image <label> <dir> <published image> <local image> <setting name>
+prepare_image() {
+    local label=$1 dir=$2 published=$3 local_image=$4 setting_name=$5
+    if [ "${!setting_name}" = true ]; then
+        build_image "$label" "$dir" "$local_image" || return 1
+        PREPARED_IMAGE=$local_image
+        return 0
+    fi
+    if ! pull_image "$published"; then
+        print_warning "Failed to pull image. Checking if local image exists..."
+        if ! docker image inspect "$published" &> /dev/null; then
+            print_error "Image not found locally or in registry: $published"
+            print_info "Set ${setting_name}=true in ndx/.env to build it from this checkout"
+            return 1
+        fi
+    fi
+    PREPARED_IMAGE=$published
+}
+
+# Exits if a *_BUILD_LOCAL setting is anything other than true or false.
+check_settings() {
+    local name
+    for name in $BUILD_LOCAL_SETTINGS; do
+        case "${!name}" in
+            true|false) ;;
+            *)
+                print_error "$name must be true or false, not '${!name}' (set in ndx/.env or the environment)"
+                exit 1
+                ;;
+        esac
+    done
+}
+
 # Function to run the Identity Registry API service
 run_identity_registry() {
-    local skip_pull=${1:-false}
-
     print_info "Starting Identity Registry API service..."
 
     cleanup_container "$IDENTITY_REGISTRY_CONTAINER"
 
-    if [ "$skip_pull" = false ]; then
-        if ! pull_image "$IDENTITY_REGISTRY_IMAGE"; then
-            print_warning "Failed to pull image. Checking if local image exists..."
-            if ! docker image inspect "$IDENTITY_REGISTRY_IMAGE" &> /dev/null; then
-                print_error "Image not found locally or in registry: $IDENTITY_REGISTRY_IMAGE"
-                print_info "Try running with 'build' command to build images locally"
-                return 1
-            fi
-        fi
-    fi
+    prepare_image "Identity Registry API" "$IDENTITY_REGISTRY_DIR" "$IDENTITY_REGISTRY_IMAGE" "$IDENTITY_REGISTRY_LOCAL_IMAGE" IDENTITY_REGISTRY_BUILD_LOCAL
 
     print_step "Starting Identity Registry API container..."
     # MSYS_NO_PATHCONV avoids Git Bash mangling the -v host:container:mode volume spec on Windows.
@@ -182,7 +233,7 @@ run_identity_registry() {
         -v "${IDENTITY_REGISTRY_DIR}/Config.toml:/home/ballerina/Config.toml:ro" \
         -v "${IDENTITY_REGISTRY_DIR}/mock_data.json:/home/ballerina/mock_data.json:ro" \
         --restart unless-stopped \
-        "$IDENTITY_REGISTRY_IMAGE"
+        "$PREPARED_IMAGE"
 
     STARTED_CONTAINERS+=("$IDENTITY_REGISTRY_CONTAINER")
     print_success "Identity Registry API started at http://localhost:9090"
@@ -191,22 +242,11 @@ run_identity_registry() {
 
 # Function to run Identity Registry Adapter service
 run_identity_registry_adapter() {
-    local skip_pull=${1:-false}
-
     print_info "Starting Identity Registry Adapter service..."
 
     cleanup_container "$IDENTITY_REGISTRY_ADAPTER_CONTAINER"
 
-    if [ "$skip_pull" = false ]; then
-        if ! pull_image "$IDENTITY_REGISTRY_ADAPTER_IMAGE"; then
-            print_warning "Failed to pull image. Checking if local image exists..."
-            if ! docker image inspect "$IDENTITY_REGISTRY_ADAPTER_IMAGE" &> /dev/null; then
-                print_error "Image not found locally or in registry: $IDENTITY_REGISTRY_ADAPTER_IMAGE"
-                print_info "Try running with 'build' command to build images locally"
-                return 1
-            fi
-        fi
-    fi
+    prepare_image "Identity Registry Adapter" "$IDENTITY_REGISTRY_ADAPTER_DIR" "$IDENTITY_REGISTRY_ADAPTER_IMAGE" "$IDENTITY_REGISTRY_ADAPTER_LOCAL_IMAGE" IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL
 
     print_step "Starting Identity Registry Adapter container..."
     docker run -d \
@@ -216,7 +256,7 @@ run_identity_registry_adapter() {
         -e "BAL_CONFIG_VAR_CHOREOAPIKEY=your-api-key" \
         -e "BAL_CONFIG_VAR_PORT=9091" \
         --restart unless-stopped \
-        "$IDENTITY_REGISTRY_ADAPTER_IMAGE"
+        "$PREPARED_IMAGE"
 
     STARTED_CONTAINERS+=("$IDENTITY_REGISTRY_ADAPTER_CONTAINER")
     print_success "Identity Registry Adapter started at http://localhost:9091"
@@ -226,22 +266,11 @@ run_identity_registry_adapter() {
 
 # Function to run the Civil Registry API service
 run_civil_registry() {
-    local skip_pull=${1:-false}
-
     print_info "Starting Civil Registry API service..."
 
     cleanup_container "$CIVIL_REGISTRY_CONTAINER"
 
-    if [ "$skip_pull" = false ]; then
-        if ! pull_image "$CIVIL_REGISTRY_IMAGE"; then
-            print_warning "Failed to pull image. Checking if local image exists..."
-            if ! docker image inspect "$CIVIL_REGISTRY_IMAGE" &> /dev/null; then
-                print_error "Image not found locally or in registry: $CIVIL_REGISTRY_IMAGE"
-                print_info "Try running with 'build' command to build images locally"
-                return 1
-            fi
-        fi
-    fi
+    prepare_image "Civil Registry API" "$CIVIL_REGISTRY_DIR" "$CIVIL_REGISTRY_IMAGE" "$CIVIL_REGISTRY_LOCAL_IMAGE" CIVIL_REGISTRY_BUILD_LOCAL
 
     print_step "Starting Civil Registry API container..."
     # MSYS_NO_PATHCONV avoids Git Bash mangling the -v host:container:mode volume spec on Windows.
@@ -250,7 +279,7 @@ run_civil_registry() {
         -p 8080:8080 \
         -v "${CIVIL_REGISTRY_DIR}/mock_data.json:/app/mock_data.json:ro" \
         --restart unless-stopped \
-        "$CIVIL_REGISTRY_IMAGE"
+        "$PREPARED_IMAGE"
 
     STARTED_CONTAINERS+=("$CIVIL_REGISTRY_CONTAINER")
     print_success "Civil Registry API started at http://localhost:8080"
@@ -261,24 +290,11 @@ run_civil_registry() {
 
 # Function to run the passport app
 run_passport_app() {
-    local skip_pull=${1:-false}
-
     print_info "Starting Online Passport App..."
 
     cleanup_container "$PASSPORT_APP_CONTAINER"
 
-    if [ "$skip_pull" = false ]; then
-        if [ "$PASSPORT_APP_BUILD_LOCAL" = true ]; then
-            build_image "Online Passport App" "$PASSPORT_APP_DIR" "$PASSPORT_APP_IMAGE"
-        elif ! pull_image "$PASSPORT_APP_IMAGE"; then
-            print_warning "Failed to pull image. Checking if local image exists..."
-            if ! docker image inspect "$PASSPORT_APP_IMAGE" &> /dev/null; then
-                print_error "Image not found locally or in registry: $PASSPORT_APP_IMAGE"
-                print_info "Try running with 'build' command to build images locally"
-                return 1
-            fi
-        fi
-    fi
+    prepare_image "Online Passport App" "$PASSPORT_APP_DIR" "$PASSPORT_APP_IMAGE" "$PASSPORT_APP_LOCAL_IMAGE" PASSPORT_APP_BUILD_LOCAL
 
     print_step "Starting Online Passport App container..."
     # This container is NOT on the exchange-network, so it reaches the published
@@ -296,7 +312,7 @@ run_passport_app() {
         -e "TOKEN_SCOPE=getdata" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
-        "$PASSPORT_APP_IMAGE"
+        "$PREPARED_IMAGE"
 
     STARTED_CONTAINERS+=("$PASSPORT_APP_CONTAINER")
     print_success "Online Passport App started at http://localhost:3000"
@@ -311,35 +327,35 @@ build_all() {
 
     # Build the Identity Registry API
     print_info "=== Building Identity Registry API ==="
-    if ! build_image "Identity Registry API" "$IDENTITY_REGISTRY_DIR" "$IDENTITY_REGISTRY_IMAGE"; then
+    if ! build_image "Identity Registry API" "$IDENTITY_REGISTRY_DIR" "$IDENTITY_REGISTRY_LOCAL_IMAGE"; then
         build_success=false
         print_error "Failed to build Identity Registry API"
     fi
 
     # Build the Identity Registry Adapter
     print_info "=== Building Identity Registry Adapter ==="
-    if ! build_image "Identity Registry Adapter" "$IDENTITY_REGISTRY_ADAPTER_DIR" "$IDENTITY_REGISTRY_ADAPTER_IMAGE"; then
+    if ! build_image "Identity Registry Adapter" "$IDENTITY_REGISTRY_ADAPTER_DIR" "$IDENTITY_REGISTRY_ADAPTER_LOCAL_IMAGE"; then
         build_success=false
         print_error "Failed to build Identity Registry Adapter"
     fi
 
     # Build the Civil Registry API
     print_info "=== Building Civil Registry API ==="
-    if ! build_image "Civil Registry API" "$CIVIL_REGISTRY_DIR" "$CIVIL_REGISTRY_IMAGE"; then
+    if ! build_image "Civil Registry API" "$CIVIL_REGISTRY_DIR" "$CIVIL_REGISTRY_LOCAL_IMAGE"; then
         build_success=false
         print_error "Failed to build Civil Registry API"
     fi
 
     # Build the passport app
     print_info "=== Building Online Passport App ==="
-    if ! build_image "Online Passport App" "$PASSPORT_APP_DIR" "$PASSPORT_APP_IMAGE"; then
+    if ! build_image "Online Passport App" "$PASSPORT_APP_DIR" "$PASSPORT_APP_LOCAL_IMAGE"; then
         build_success=false
         print_error "Failed to build Online Passport App"
     fi
 
     if [ "$build_success" = true ]; then
         print_success "All images built successfully!"
-        print_info "You can now run services with: $0 all"
+        print_info "Run them with: $0 build-run, or set the *_BUILD_LOCAL settings in ndx/.env to true"
     else
         print_error "Some builds failed. Please check the errors above."
         exit 1
@@ -348,19 +364,17 @@ build_all() {
 
 # Function to run all services
 run_all() {
-    local skip_pull=${1:-false}
-
     print_info "Starting all services..."
     print_warning "Services will run in Docker containers"
 
     # Run all services
-    run_identity_registry "$skip_pull"
+    run_identity_registry
     sleep 2
-    run_identity_registry_adapter "$skip_pull"
+    run_identity_registry_adapter
     sleep 2
-    run_civil_registry "$skip_pull"
+    run_civil_registry
     sleep 2
-    run_passport_app "$skip_pull"
+    run_passport_app
 
     echo ""
     print_success "All services started successfully!"
@@ -417,23 +431,26 @@ show_usage() {
 Usage: $0 [COMMAND]
 
 Commands:
-  identity-registry          Pull and run only the Identity Registry API (port 9090)
-  identity-registry-adapter  Pull and run only the Identity Registry Adapter (GraphQL, port 9091)
-  civil-registry             Pull and run only the Civil Registry API (port 8080)
-  passport-app               Build and run only the Online Passport App (port 3000)
-  all                        Run all services; build the passport app locally (default)
-  build                      Build all Docker images locally
-  build-run                  Build all images locally and run them
+  identity-registry          Run only the Identity Registry API (port 9090)
+  identity-registry-adapter  Run only the Identity Registry Adapter (GraphQL, port 9091)
+  civil-registry             Run only the Civil Registry API (port 8080)
+  passport-app               Run only the Online Passport App (port 3000)
+  all                        Run all services (default)
+  build                      Build all images from this checkout (tagged farajaland/<name>:local)
+  build-run                  Build all images from this checkout and run them
   stop                       Stop all running services
   status                     Show status of all services
   help                       Show this help message
 
-Environment Variables:
-  IDENTITY_REGISTRY_IMAGE          Identity Registry API image (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
-  IDENTITY_REGISTRY_ADAPTER_IMAGE  Identity Registry Adapter image (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
-  CIVIL_REGISTRY_IMAGE             Civil Registry API image (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
-  PASSPORT_APP_IMAGE               Passport app image (default: ghcr.io/openndx/online-passport-app:v0.1.0)
-  PASSPORT_APP_BUILD_LOCAL         Build the passport app from this checkout instead of pulling it (default: false)
+Settings (read from the environment, then ndx/.env):
+  IDENTITY_REGISTRY_BUILD_LOCAL          true builds the Identity Registry API from this checkout; false pulls its image (default: false)
+  IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL  Same for the Identity Registry Adapter (default: false)
+  CIVIL_REGISTRY_BUILD_LOCAL             Same for the Civil Registry API (default: false)
+  PASSPORT_APP_BUILD_LOCAL               Same for the passport app (default: false)
+  IDENTITY_REGISTRY_IMAGE                Image pulled for the Identity Registry API (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
+  IDENTITY_REGISTRY_ADAPTER_IMAGE        Image pulled for the Identity Registry Adapter (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
+  CIVIL_REGISTRY_IMAGE                   Image pulled for the Civil Registry API (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
+  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.0)
 
 Examples:
   $0 identity-registry                      # Run only the Identity Registry API
@@ -441,7 +458,7 @@ Examples:
   $0 build                                  # Build all images locally
   $0 build-run                              # Build and run all services
   $0 stop                                   # Stop all services
-  PASSPORT_APP_BUILD_LOCAL=true $0 all      # Run all services, building the passport app from this checkout
+  PASSPORT_APP_BUILD_LOCAL=true $0 all      # Run all services, building only the passport app from this checkout
   CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.2.0 $0 civil-registry  # Run another version
 
 Service Information:
@@ -449,11 +466,11 @@ Service Information:
   Identity Registry Adapter:  GraphQL adapter for the Identity Registry API (Ballerina)
   Civil Registry API:         Mock birth registration GraphQL API (Python/FastAPI)
 
-Docker Images:
-  Identity Registry API:      $IDENTITY_REGISTRY_IMAGE
-  Identity Registry Adapter:  $IDENTITY_REGISTRY_ADAPTER_IMAGE
-  Civil Registry API:         $CIVIL_REGISTRY_IMAGE
-  Passport App:               $PASSPORT_APP_IMAGE
+Docker Images (pulled / built locally):
+  Identity Registry API:      $IDENTITY_REGISTRY_IMAGE / $IDENTITY_REGISTRY_LOCAL_IMAGE
+  Identity Registry Adapter:  $IDENTITY_REGISTRY_ADAPTER_IMAGE / $IDENTITY_REGISTRY_ADAPTER_LOCAL_IMAGE
+  Civil Registry API:         $CIVIL_REGISTRY_IMAGE / $CIVIL_REGISTRY_LOCAL_IMAGE
+  Passport App:               $PASSPORT_APP_IMAGE / $PASSPORT_APP_LOCAL_IMAGE
 
 EOF
 }
@@ -462,34 +479,38 @@ EOF
 main() {
     local command="${1:-all}"
 
-    # Always check Docker first (except for help)
+    # Always check the settings and Docker first (except for help)
     if [ "$command" != "help" ] && [ "$command" != "-h" ] && [ "$command" != "--help" ]; then
+        check_settings
         check_docker
     fi
 
     case "$command" in
         identity-registry)
-            run_identity_registry false
+            run_identity_registry
             ;;
         identity-registry-adapter)
-            run_identity_registry_adapter false
+            run_identity_registry_adapter
             ;;
         civil-registry)
-            run_civil_registry false
+            run_civil_registry
             ;;
         passport-app)
-            run_passport_app false
+            run_passport_app
             ;;
         all)
-            run_all false
+            run_all
             ;;
         build)
             build_all
             ;;
         build-run)
-            build_all
-            print_info "Starting services with locally built images..."
-            run_all true
+            # Build every service from this checkout as it starts.
+            IDENTITY_REGISTRY_BUILD_LOCAL=true
+            IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL=true
+            CIVIL_REGISTRY_BUILD_LOCAL=true
+            PASSPORT_APP_BUILD_LOCAL=true
+            run_all
             ;;
         stop)
             stop_all
