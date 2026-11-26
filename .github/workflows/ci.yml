@@ -1,0 +1,105 @@
+name: CI
+
+# Checks every pull request and every push to main: the scripts, the Compose
+# configuration, the mock data, the Identity Registry Adapter's tests, and the
+# four member images, which are built (not pushed) from their Dockerfiles.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Scripts, Compose and mock data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell scripts
+        run: |
+          mapfile -t scripts < <(git ls-files '*.sh')
+          for f in "${scripts[@]}"; do bash -n "$f"; done
+          shellcheck --version | sed -n 2p
+          shellcheck --severity=warning --external-sources "${scripts[@]}"
+
+      - name: Docker Compose configuration
+        run: docker compose -f ndx/docker-compose.yml config --quiet
+
+      - name: Mock data is valid JSON
+        run: |
+          git ls-files '*mock_data.json' | while read -r f; do
+            python3 -m json.tool "$f" > /dev/null && echo "ok: $f"
+          done
+
+  identity-registry-adapter:
+    name: Identity Registry Adapter tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: members/identity-registry/data-sources/identity-registry-adapter
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Ballerina image runs as a non-root user that must write target/.
+      - name: bal test
+        run: |
+          chmod -R a+rwX .
+          docker run --rm -v "$PWD:/home/ballerina/project" -w /home/ballerina/project \
+            ballerina/ballerina:2201.13.1 bal test --sticky
+
+  civil-registry:
+    name: Civil Registry mock data loads
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: members/civil-registry/data-sources/civil-registry-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Same Python as the image (python:3.11-slim).
+          python-version: "3.11"
+
+      # load_mock_data() builds every record, so a missing or renamed key fails.
+      - name: Load mock_data.json
+        run: |
+          pip install --quiet -r requirements.txt
+          python -c 'from mock_data import load_mock_data; print(len(load_mock_data()["birth"]), "birth records loaded")'
+
+  images:
+    name: Build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: identity-registry-api
+            context: members/identity-registry/data-sources/identity-registry-api
+          - image: identity-registry-adapter
+            context: members/identity-registry/data-sources/identity-registry-adapter
+          - image: civil-registry-api
+            context: members/civil-registry/data-sources/civil-registry-api
+          - image: online-passport-app
+            context: members/immigration/applications/online-passport-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # The passport app's Dockerfile type-checks and builds its client and
+      # server; the Ballerina Dockerfiles compile with --sticky.
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=ci-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.image }}
