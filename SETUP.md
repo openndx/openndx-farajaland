@@ -593,9 +593,10 @@ PASSPORT_APP_BUILD_LOCAL=false
 PostgreSQL holds one database per service: `pdp_db` for the Policy Decision
 Point, `ce_db` for the Consent Engine and `audit_db` for the audit service. The
 names are set in `ndx/.env`. On every `docker compose up`, the one-shot `migrate`
-service prepares them before those services start. It uses the migration tool
-nsw-srilanka uses (`github.com/OpenNSW/agency/backend/cmd/migrate`), and runs
-three steps:
+service prepares them before those services start. It uses the `migrate`
+command from [OpenNSW/tools](https://github.com/OpenNSW/tools/tree/main/migrator)
+(`github.com/OpenNSW/tools/migrator/cmd/migrate`, pinned in
+`ndx/migrations/Dockerfile`), and runs three steps:
 
 1. Creates any database that is missing.
 2. Applies each service's pending migrations from `ndx/migrations/<service>/`,

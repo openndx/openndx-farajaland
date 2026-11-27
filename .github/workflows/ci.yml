@@ -2,7 +2,8 @@ name: CI
 
 # Checks every pull request and every push to main: the scripts, the Compose
 # configuration, the mock data, the Identity Registry Adapter's tests, and the
-# four member images, which are built (not pushed) from their Dockerfiles.
+# four member images and the migrate image, which are built (not pushed) from
+# their Dockerfiles.
 on:
   pull_request:
   push:
@@ -90,6 +91,10 @@ jobs:
             context: members/civil-registry/data-sources/civil-registry-api
           - image: online-passport-app
             context: members/immigration/applications/online-passport-app
+          # Built locally by Compose, not released; building it checks the
+          # migrator pin in ndx/migrations/Dockerfile.
+          - image: migrate
+            context: ndx/migrations
     steps:
       - uses: actions/checkout@v4
 
