@@ -163,8 +163,8 @@ ISSUER_URL="$IDP_ISSUER"
 print_info "Starting NDX infrastructure services (docker compose)..."
 cd "$NDX_DIR"
 
-if [ ! -f "docker-compose.yml" ]; then
-    print_error "docker-compose.yml not found in ndx directory"
+if [ ! -f "compose.yml" ]; then
+    print_error "compose.yml not found in ndx directory"
     exit 1
 fi
 
@@ -225,7 +225,7 @@ for i in $(seq 1 30); do
     if [ "$i" -eq 30 ]; then
         print_error "ThunderID health check failed after 30 attempts"
         print_error "Please check if the ThunderID containers are running properly:"
-        print_error "  docker compose -f $NDX_DIR/docker-compose.yml logs thunderid thunderid-setup thunderid-db-init"
+        print_error "  docker compose -f $NDX_DIR/compose.yml logs thunderid thunderid-setup thunderid-db-init"
         print_error ""
         print_error "The script will now exit. Please resolve the issue and try again."
         exit 1
@@ -237,7 +237,7 @@ done
 # The API Gateway client, the Consent Portal client, CORS, and the OE
 # resource server are infrastructure - provisioned declaratively at startup
 # by thunderid-setup's in-process bootstrap (config/thunderid/bootstrap/
-# 02..06-*.yaml, see docker-compose.yml). Nothing left for this script to POST
+# 02..06-*.yaml, see compose.yml). Nothing left for this script to POST
 # for those; the client ids/secrets below just have to agree with those files
 # (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"
@@ -404,7 +404,7 @@ fi
 
 # Consumer apps reach the identity provider's token endpoint through the
 # exchange's public entry point, as they would in production. ThunderID's own
-# port stays on this machine (see ndx/docker-compose.yml).
+# port stays on this machine (see ndx/compose.yml).
 print_info "Exposing the ThunderID token endpoint through the API gateway"
 TOKEN_ROUTE_CODE=$(jq -n \
   --arg node "thunderid:${IDP_PORT}" \

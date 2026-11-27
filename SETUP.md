@@ -255,7 +255,7 @@ this test to avoid stale login sessions.
 In another terminal, from the repository root:
 
 ```bash
-docker compose -f ndx/docker-compose.yml ps -a
+docker compose -f ndx/compose.yml ps -a
 curl -sS http://localhost:3000/api/health
 ```
 
@@ -359,11 +359,11 @@ configured client secret if you changed it.
 From the repository root:
 
 ```bash
-docker compose -f ndx/docker-compose.yml exec -T postgres \
+docker compose -f ndx/compose.yml exec -T postgres \
   psql -U exchange -d ce_db -c \
   "SELECT owner_id, app_id, status, updated_at FROM consent_records ORDER BY updated_at DESC;"
 
-docker compose -f ndx/docker-compose.yml exec -T postgres \
+docker compose -f ndx/compose.yml exec -T postgres \
   psql -U exchange -d audit_db -c \
   "SELECT count(*) AS audit_events FROM audit_logs;"
 ```
@@ -376,7 +376,7 @@ These commands use the checkout's default database user and database names.
 If a step fails, inspect the relevant logs:
 
 ```bash
-docker compose -f ndx/docker-compose.yml logs --tail=100 \
+docker compose -f ndx/compose.yml logs --tail=100 \
   orchestration-engine consent-engine policy-decision-point thunderid audit-service
 docker logs --tail=100 online-passport-app
 ```
@@ -662,7 +662,7 @@ sudo systemctl start docker
 # Find and kill the process using the port (example for port 9081):
 lsof -ti:9081 | xargs kill -9
 
-# Or change the port in docker-compose.yml
+# Or change the port in compose.yml
 ```
 
 ### Upgrading an Existing Environment
@@ -760,7 +760,7 @@ every query with "Access expired" until you extend them. While `init.sh` is
 running, from the repository root:
 
 ```bash
-docker compose -f ndx/docker-compose.yml exec -T postgres \
+docker compose -f ndx/compose.yml exec -T postgres \
   psql -U exchange -d testdb2 -c \
   "UPDATE policy_metadata SET allow_list = jsonb_set(allow_list, '{passport-app,expires_at}', to_jsonb(now() + interval '1 year')) WHERE allow_list ? 'passport-app';"
 ```
@@ -903,7 +903,7 @@ If you encounter issues not covered in this guide:
 
 Key configuration files you may need to modify:
 
-- `ndx/docker-compose.yml` - Infrastructure services configuration
+- `ndx/compose.yml` - Infrastructure services configuration
 - `ndx/config/openndx/{pdp,ce,oe}.yaml` - Backend service configuration
 - `ndx/schema.graphql` - Unified GraphQL schema
 - `ndx/.env` - Environment variables for NDX services
@@ -916,7 +916,7 @@ Key configuration files you may need to modify:
 
 ### Enabling Additional Services
 
-The `docker-compose.yml` includes optional services that are disabled by default. To enable them, uncomment the service definition in `ndx/docker-compose.yml` and restart:
+The `compose.yml` includes optional services that are disabled by default. To enable them, uncomment the service definition in `ndx/compose.yml` and restart:
 
 ```bash
 cd ndx

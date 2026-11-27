@@ -32,7 +32,7 @@ jobs:
           shellcheck --severity=warning --external-sources "${scripts[@]}"
 
       - name: Docker Compose configuration
-        run: docker compose -f ndx/docker-compose.yml config --quiet
+        run: docker compose -f ndx/compose.yml config --quiet
 
       - name: Mock data is valid JSON
         run: |
