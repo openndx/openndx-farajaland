@@ -108,9 +108,13 @@ alike. A variable set in your shell overrides `ndx/.env` for one run. Secrets
 may contain characters such as `/`, `&` and `#`; quote a value that contains
 ` #`, which otherwise starts a comment. Avoid `$` (Docker Compose expands it)
 and `"` or `\` (ThunderID inserts some secrets into quoted YAML).
-`MOCK_USER_PASSWORD` must also not contain `&`, `<`, `>` or `'`: ThunderID
-1.1.1 HTML-escapes the password typed at sign-in, so the demo citizen could
-never sign in. `init.sh` stops with an error if it does.
+
+> **Known ThunderID 1.1.1 issue:** ThunderID HTML-escapes the password typed at
+> sign-in (`&` becomes `&amp;`) but stores a password set through its API or
+> `/import` as given. A user whose password was set that way cannot sign in if
+> it contains `&`, `<`, `>`, `'` or `"`. This includes the demo citizen,
+> imported by `init.sh` with `MOCK_USER_PASSWORD`, so `init.sh` warns if that
+> password contains one of them. Client secrets are not affected.
 
 **Volume Cleanup Behavior:**
 
