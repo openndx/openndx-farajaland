@@ -1,4 +1,6 @@
-# Connection settings for the migrate tool (OpenNSW/agency cmd/migrate).
+# Connection settings for the migrate tool (OpenNSW/tools migrator). It
+# requires host, port (a number), user, password and name, and does not fall
+# back to the PG* variables run.sh sets for psql.
 # run.sh runs it once per service, setting MIGRATE_DB_NAME and MIGRATE_DIR to
 # that service's database and migrations folder.
 db:

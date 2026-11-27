@@ -329,15 +329,16 @@ services:
     restart: unless-stopped
 
   # One-shot database setup (ndx/migrations/run.sh): creates each service's
-  # database, applies the PDP and CE migrations with the OpenNSW/agency migrate
+  # database, applies the PDP and CE migrations with the OpenNSW/tools migrate
   # tool, then loads the demo seed data. PDP, CE and audit start after it
   # exits successfully. Check its state with `docker compose run --rm migrate status`.
   migrate:
     build:
       context: ./migrations
       args:
-        # Passed through when set, so a different migrator version needs no
-        # edit here: MIGRATE_VERSION=<pseudo-version> docker compose build migrate
+        # Passed through when set, so a different migrator needs no edit
+        # here: MIGRATE_VERSION=<version> docker compose build migrate
+        - MIGRATE_PACKAGE
         - MIGRATE_VERSION
     container_name: migrate-${ENVIRONMENT:-local}
     depends_on:

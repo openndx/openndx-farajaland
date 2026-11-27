@@ -567,7 +567,7 @@ type PersonInfo {
 - Swagger/OpenAPI documentation
 
 **Docker-Based Development**:
-- `docker-compose.yml` for local development
+- `compose.yml` for local development
 - All services containerized
 - Easy setup with `./init.sh`
 
