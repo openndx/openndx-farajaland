@@ -49,7 +49,7 @@ export default function Login() {
         "fudi_user",
         JSON.stringify({
           name: "Suresh Fernando",
-          nic: "suresh@ndx.fl",
+          nic: "FL-4829105736",
           fudiNumber: formData.fudiNumber,
           mobileNumber: "+100712345678",
           email: "suresh@ndx.fl",

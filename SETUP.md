@@ -229,7 +229,8 @@ All services are running. Monitoring...
 1. **Save M2M Credentials**: The displayed `Client ID` and `Client Secret` are needed to access the public endpoints. The client secret cannot be retrieved later.
 
 2. **Automatically Created User**: The script automatically creates a mock user for testing:
-   - **Username**: `suresh@ndx.fl` (or just `suresh` for login)
+   - **Username**: `suresh`, the citizen whose NIC is `FL-4829105736` (a NIC is
+     `FL-` and 10 digits)
    - **Password**: `Abc12#45`
 
 3. **Access Points**:
@@ -278,7 +279,7 @@ Allow popups from `http://localhost:3000` so the passport app can open consent r
 1. Open `http://localhost:3000/login` directly. This is the demo applicant login:
    keep the prefilled FUDI value and OTP (`232323`), then click **Continue** and
    **Complete Login**. This simulated OTP flow selects the demo record identified
-   by `suresh@ndx.fl`; it does not send an SMS.
+   by NIC `FL-4829105736`; it does not send an SMS.
 2. On the application form, click **Load My Details**. With no approved consent,
    a Consent Portal popup should open. Personal details must remain unavailable
    until you approve.
@@ -313,7 +314,7 @@ providers for you.
 ```bash
 NDX_TEST_REQUEST='{
   "query": "query GetPersonInfo($nic: String!) { personInfo(nic: $nic) { fullName name otherNames address profession dateOfBirth sex birthInfo { birthRegistrationNumber birthPlace district } } }",
-  "variables": {"nic": "suresh@ndx.fl"}
+  "variables": {"nic": "FL-4829105736"}
 }'
 
 curl -sS http://localhost:3000/api/graphql \
@@ -375,7 +376,7 @@ docker compose -f ndx/compose.yml exec -T postgres \
   "SELECT count(*) AS audit_events FROM audit_logs;"
 ```
 
-Expected: consent records for owner `suresh@ndx.fl` and app `passport-app`,
+Expected: consent records for owner `FL-4829105736` and app `passport-app`,
 with statuses matching your actions, and an audit count greater than zero that
 increases as you make requests. Audit writes are asynchronous; allow a few seconds.
 These commands use the checkout's default database user and database names.
@@ -560,10 +561,10 @@ locally (below):
 
 | Service | Image | Source |
 |---|---|---|
-| Identity Registry API | `ghcr.io/openndx/identity-registry-api:v0.1.0` | `members/identity-registry/data-sources/identity-registry-api` |
+| Identity Registry API | `ghcr.io/openndx/identity-registry-api:v0.2.0` | `members/identity-registry/data-sources/identity-registry-api` |
 | Identity Registry Adapter | `ghcr.io/openndx/identity-registry-adapter:v0.1.0` | `members/identity-registry/data-sources/identity-registry-adapter` |
-| Civil Registry API | `ghcr.io/openndx/civil-registry-api:v0.1.0` | `members/civil-registry/data-sources/civil-registry-api` |
-| Passport app | `ghcr.io/openndx/online-passport-app:v0.1.1` | `members/immigration/applications/online-passport-app` |
+| Civil Registry API | `ghcr.io/openndx/civil-registry-api:v0.2.0` | `members/civil-registry/data-sources/civil-registry-api` |
+| Passport app | `ghcr.io/openndx/online-passport-app:v0.2.0` | `members/immigration/applications/online-passport-app` |
 
 The mock data and the Identity Registry API's `Config.toml` are mounted from
 this checkout, so editing them needs no new image.

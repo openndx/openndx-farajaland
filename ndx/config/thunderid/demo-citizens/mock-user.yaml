@@ -4,8 +4,8 @@
 # Deliberately NOT under ../bootstrap/ - that directory is ThunderID's own
 # infrastructure bootstrap (the API gateway's client, the consent portal's
 # client, CORS). A citizen is not exchange infrastructure: in a real
-# deployment, citizens arrive by self-registering through the consent portal
-# or some other enrollment process. This demo imports its Person-type user
+# deployment, citizens arrive through an enrollment process. This demo
+# imports its Citizen-type user (../bootstrap/07-citizen-user-type.yaml)
 # explicitly after startup.
 #
 # Same treatment as config/thunderid/data-consumers/passport-application.yaml:
@@ -15,7 +15,7 @@
 # a user through the UI first - it is not a stand-in for the real citizen
 # enrollment flow. A follow-up PR will document that.
 #
-# Matches the Identity Registry and Civil Registry mock data's "suresh@ndx.fl" record
+# Matches the Identity Registry and Civil Registry mock data's FL-4829105736 record
 # (members/identity-registry/data-sources/identity-registry-api/mock_data.json).
 #
 # {{ .MOCK_USER_PASSWORD }} is resolved from the environment by init.sh
@@ -24,10 +24,11 @@
 #
 resource_type: user
 id: 01900000-0000-7000-8000-0000000000d1
-type: Person
+type: Citizen
 ouHandle: default
 attributes:
   username: suresh
+  nic: FL-4829105736
   email: suresh@ndx.fl
   given_name: Suresh
   family_name: Fernando

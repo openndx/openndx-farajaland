@@ -247,10 +247,11 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# The API Gateway client, the Consent Portal client, CORS, and the OE
-# resource server are infrastructure - provisioned declaratively at startup
-# by thunderid-setup's in-process bootstrap (config/thunderid/bootstrap/
-# 02..06-*.yaml, see compose.yml). Nothing left for this script to POST
+# The API Gateway client, the Consent Portal client, CORS, the OE resource
+# server and the Citizen user type are infrastructure - provisioned
+# declaratively at startup by thunderid-setup's in-process bootstrap
+# (config/thunderid/bootstrap/02..07-*.yaml, see compose.yml). Nothing left
+# for this script to POST
 # for those; the client ids/secrets below just have to agree with those files
 # (see ndx/.env).
 GATEWAY_CLIENT_ID="ndx-api-gateway"

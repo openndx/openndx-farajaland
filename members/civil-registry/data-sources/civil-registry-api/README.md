@@ -1,6 +1,6 @@
 # Mock Civil Registry GraphQL Service
 
-This service provides a GraphQL subgraph for birth registration information including person details, parent information, and registration data, queryable by NIC number or email.
+This service provides a GraphQL subgraph for birth registration information including person details, parent information, and registration data, queryable by NIC.
 
 ## Features
 
@@ -195,7 +195,7 @@ query GetPerson($nic: ID!) {
 **Variables**:
 ```json
 {
-  "nic": "suresh@ndx.fl"
+  "nic": "FL-4829105736"
 }
 ```
 
@@ -217,7 +217,7 @@ curl -X POST "http://localhost:8080/graphql" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "{ getPersonInfo(nic: \"suresh@ndx.fl\") { name nic birth_date } }"
+    "query": "{ getPersonInfo(nic: \"FL-4829105736\") { name nic birth_date } }"
   }'
 ```
 
@@ -247,7 +247,7 @@ headers = {
 graphql_query = {
     "query": """
     {
-      getPersonInfo(nic: "suresh@ndx.fl") {
+      getPersonInfo(nic: "FL-4829105736") {
         name
         nic
         birth_date
@@ -306,7 +306,7 @@ async function queryGraphQL() {
     {
       query: `
         {
-          getPersonInfo(nic: "suresh@ndx.fl") {
+          getPersonInfo(nic: "FL-4829105736") {
             name
             nic
             birth_date
@@ -339,12 +339,14 @@ queryGraphQL();
 
 ## Mock Data
 
-The service includes sample birth certificate data for the following NICs:
-- `suresh@ndx.fl` - Suresh Fernando (Central)
-- `gomesh@ndx.fl` - Gomesh Fernando (Northern)
-- `naresh@ndx.fl` - Naresh Fernando (Southern)
-- `ramesh@ndx.fl` - Ramesh Fernando (Eastern)
-- `dinesh@ndx.fl` - Dinesh Fernando (Western)
+The service includes sample birth certificate data for the following NICs
+(`FL-` and 10 digits):
+- `FL-4829105736` - Suresh Fernando (Central)
+- `FL-6081734925` - Gomesh Fernando (Northern)
+- `FL-2954817360` - Naresh Fernando (Southern)
+- `FL-7316048259` - Ramesh Fernando (Eastern)
+- `FL-3647209158` - Dinesh Fernando (Western)
+- `FL-9172563804` - Mahesh Fernando (Harbor)
 
 ## Federation Support
 
@@ -402,15 +404,15 @@ Images are built for `linux/amd64` and `linux/arm64` and published to GHCR by
 `.github/workflows/release-images.yml`. To release, push a tag named after the image:
 
 ```bash
-git tag civil-registry-api/v0.2.0
-git push origin civil-registry-api/v0.2.0
+git tag civil-registry-api/v0.3.0
+git push origin civil-registry-api/v0.3.0
 ```
 
-This publishes `ghcr.io/openndx/civil-registry-api:v0.2.0`. The workflow can also
+This publishes `ghcr.io/openndx/civil-registry-api:v0.3.0`. The workflow can also
 be run manually from the Actions tab. After releasing, update the
 `CIVIL_REGISTRY_IMAGE` default in `members/run-member-services.sh`, or override
 it for a single run:
 
 ```bash
-CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.2.0 ./members/run-member-services.sh civil-registry
+CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.3.0 ./members/run-member-services.sh civil-registry
 ```

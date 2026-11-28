@@ -1,0 +1,42 @@
+# The demo citizens' user type. Consent Engine matches the nic claim
+# (IDP_SUBJECT_CLAIM in ndx/.env) against a consent's owner ID, which the OE
+# takes from the query's nic argument, so a citizen's nic is their NIC in the
+# mock providers' data: "FL-" and 10 digits. The demo citizen itself is
+# config/thunderid/demo-citizens/mock-user.yaml, imported by init.sh.
+resource_type: user_type
+id: 01900000-0000-7000-8000-000000000032
+category: user
+name: Citizen
+ouHandle: default
+allowSelfRegistration: false
+systemAttributes:
+  display: username
+schema:
+  username:
+    type: string
+    displayName: Username
+    required: true
+    unique: true
+  nic:
+    type: string
+    displayName: National Identity Card Number
+    required: true
+    unique: true
+    regex: "^FL-[0-9]{10}$"
+  email:
+    type: string
+    displayName: Email
+    required: true
+  given_name:
+    type: string
+    displayName: First Name
+    required: false
+  family_name:
+    type: string
+    displayName: Last Name
+    required: false
+  password:
+    type: string
+    displayName: Password
+    required: false
+    credential: true

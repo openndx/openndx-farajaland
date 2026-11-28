@@ -41,7 +41,7 @@ The complete app will run on: http://localhost:3000
 ### Demo Status Tracking
 Search with:
 - Application Number: `PA2024001234`
-- OR NIC: `suresh@ndx.fl`
+- OR NIC: `FL-4829105736`
 
 ## Common Issues
 
