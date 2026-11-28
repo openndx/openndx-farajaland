@@ -172,7 +172,7 @@ NDX_GRAPHQL_API_URL=http://localhost:9081/public/graphql
 
 ```graphql
 query GetData {
-  personInfo(nic: "suresh@ndx.fl") {
+  personInfo(nic: "FL-4829105736") {
     name
     fullName
     otherNames

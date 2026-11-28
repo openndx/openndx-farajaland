@@ -52,10 +52,10 @@ PASSPORT_APP_DIR="${SCRIPT_DIR}/immigration/applications/online-passport-app"
 # linux/amd64 and linux/arm64, by .github/workflows/release-images.yml) unless
 # its *_BUILD_LOCAL setting is true, which builds the image from this checkout
 # instead. Set these in ndx/.env or the environment.
-setting IDENTITY_REGISTRY_IMAGE ghcr.io/openndx/identity-registry-api:v0.1.0
+setting IDENTITY_REGISTRY_IMAGE ghcr.io/openndx/identity-registry-api:v0.2.0
 setting IDENTITY_REGISTRY_ADAPTER_IMAGE ghcr.io/openndx/identity-registry-adapter:v0.1.0
-setting CIVIL_REGISTRY_IMAGE ghcr.io/openndx/civil-registry-api:v0.1.0
-setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.1.1
+setting CIVIL_REGISTRY_IMAGE ghcr.io/openndx/civil-registry-api:v0.2.0
+setting PASSPORT_APP_IMAGE ghcr.io/openndx/online-passport-app:v0.2.0
 setting IDENTITY_REGISTRY_BUILD_LOCAL false
 setting IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL false
 setting CIVIL_REGISTRY_BUILD_LOCAL false
@@ -435,10 +435,10 @@ Settings (read from the environment, then ndx/.env):
   IDENTITY_REGISTRY_ADAPTER_BUILD_LOCAL  Same for the Identity Registry Adapter (default: false)
   CIVIL_REGISTRY_BUILD_LOCAL             Same for the Civil Registry API (default: false)
   PASSPORT_APP_BUILD_LOCAL               Same for the passport app (default: false)
-  IDENTITY_REGISTRY_IMAGE                Image pulled for the Identity Registry API (default: ghcr.io/openndx/identity-registry-api:v0.1.0)
+  IDENTITY_REGISTRY_IMAGE                Image pulled for the Identity Registry API (default: ghcr.io/openndx/identity-registry-api:v0.2.0)
   IDENTITY_REGISTRY_ADAPTER_IMAGE        Image pulled for the Identity Registry Adapter (default: ghcr.io/openndx/identity-registry-adapter:v0.1.0)
-  CIVIL_REGISTRY_IMAGE                   Image pulled for the Civil Registry API (default: ghcr.io/openndx/civil-registry-api:v0.1.0)
-  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.1.1)
+  CIVIL_REGISTRY_IMAGE                   Image pulled for the Civil Registry API (default: ghcr.io/openndx/civil-registry-api:v0.2.0)
+  PASSPORT_APP_IMAGE                     Image pulled for the passport app (default: ghcr.io/openndx/online-passport-app:v0.2.0)
 
 Examples:
   $0 identity-registry                      # Run only the Identity Registry API
@@ -447,7 +447,7 @@ Examples:
   $0 build-run                              # Build and run all services
   $0 stop                                   # Stop all services
   PASSPORT_APP_BUILD_LOCAL=true $0 all      # Run all services, building only the passport app from this checkout
-  CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.2.0 $0 civil-registry  # Run another version
+  CIVIL_REGISTRY_IMAGE=ghcr.io/openndx/civil-registry-api:v0.3.0 $0 civil-registry  # Run another version
 
 Service Information:
   Identity Registry API:      Mock identity registry REST API (Ballerina)

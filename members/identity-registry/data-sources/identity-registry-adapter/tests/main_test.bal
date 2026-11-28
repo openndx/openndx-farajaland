@@ -13,18 +13,18 @@ public function mockInitializeIdentityRegistryClient() returns IdentityRegistryC
     IdentityRegistryClient mockClient = test:mock(IdentityRegistryClient);
 
     // Prepare the mock client to respond to the 'getPersonByNic' call for the SUCCESS case.
-    test:prepare(mockClient).when("getPersonByNic").withArguments("suresh@ndx.fl").thenReturn(getMockPersonData());
+    test:prepare(mockClient).when("getPersonByNic").withArguments("FL-4829105736").thenReturn(getMockPersonData());
 
     // Prepare the mock client to respond with an error for the NOT FOUND case.
-    test:prepare(mockClient).when("getPersonByNic").withArguments("unknown@ndx.fl").thenReturn(error("Person not found in mock"));
+    test:prepare(mockClient).when("getPersonByNic").withArguments("FL-0000000000").thenReturn(error("Person not found in mock"));
     return mockClient;
 }
 
 // Helper function to return the mock data record. This uses the 'PersonData' type from 'types.bal'
-// and matches the suresh@ndx.fl record in ../identity-registry-api/mock_data.json.
+// and matches the FL-4829105736 record in ../identity-registry-api/mock_data.json.
 function getMockPersonData() returns PersonData {
     return {
-        nic: "suresh@ndx.fl", fullName: "Suresh Fernando", otherNames: "Suresh", permanentAddress: "105 Main Street, Central City 10000", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
+        nic: "FL-4829105736", fullName: "Suresh Fernando", otherNames: "Suresh", permanentAddress: "105 Main Street, Central City 10000", profession: "Software Engineer", photo: "https://example.com/photo.jpg"
     };
 }
 
@@ -35,16 +35,16 @@ http:Client testClient = check new ("http://localhost:9091");
 
 @test:Config {}
 public function testPersonFound() returns error? {
-    string query = "{ person(nic: \"suresh@ndx.fl\") { nic fullName otherNames permanentAddress profession } }";
+    string query = "{ person(nic: \"FL-4829105736\") { nic fullName otherNames permanentAddress profession } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
-    json expected = { "data": { "person": { "nic": "suresh@ndx.fl", "fullName": "Suresh Fernando", "otherNames": "Suresh", "permanentAddress": "105 Main Street, Central City 10000", "profession": "Software Engineer" } } };
+    json expected = { "data": { "person": { "nic": "FL-4829105736", "fullName": "Suresh Fernando", "otherNames": "Suresh", "permanentAddress": "105 Main Street, Central City 10000", "profession": "Software Engineer" } } };
     test:assertEquals(response, expected, "Response mismatch for found person");
 }
 
 @test:Config {}
 public function testPersonNotFound() returns error? {
-    string query = "{ person(nic: \"unknown@ndx.fl\") { fullName } }";
+    string query = "{ person(nic: \"FL-0000000000\") { fullName } }";
     json payload = { "query": query };
     json response = check testClient->post("/", payload);
     json expected = { "data": { "person": null } };

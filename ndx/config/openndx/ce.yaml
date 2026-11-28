@@ -16,7 +16,7 @@ idp:
   issuer: "{{env:IDP_ISSUER}}"
   audience: "{{env:IDP_AUDIENCE}}"
   insecureSkipTLSVerify: "{{env:IDP_JWKS_INSECURE_SKIP_VERIFY}}"
-  # The email claim matches OE owner_id; the demo query's nic value is an email.
+  # The nic claim matches OE owner_id: the citizen's NIC, as in the demo query.
   subjectClaim: "{{env:IDP_SUBJECT_CLAIM}}"
 
 database:

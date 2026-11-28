@@ -183,7 +183,7 @@ Client → GraphQL Query (retry) → API Gateway → Data Response
 ```json
 {
   "consentId": "consent_abc123",
-  "citizenId": "suresh@ndx.fl",
+  "citizenId": "FL-4829105736",
   "consumerId": "passport-app",
   "dataScope": {
     "providers": ["civil-registry-v1", "identity-registry-v1"],

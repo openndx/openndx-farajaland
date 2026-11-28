@@ -42,7 +42,7 @@ This workflow illustrates the end-to-end process of how the **Immigration Depart
 **Technical Details**:
 ```graphql
 query {
-  personInfo(nic: "suresh@ndx.fl") {
+  personInfo(nic: "FL-4829105736") {
     fullName
     dateOfBirth
     birthPlace
@@ -199,7 +199,7 @@ Consent Portal → Callback URL with session token → Passport Application
 
 ```graphql
 query {
-  personInfo(nic: "suresh@ndx.fl") {
+  personInfo(nic: "FL-4829105736") {
     fullName
     dateOfBirth
     birthPlace
@@ -236,7 +236,7 @@ NDX splits the query into sub-queries based on data source mapping:
 **Sub-query to the Civil Registry**:
 ```graphql
 query {
-  getPersonInfo(nic: "suresh@ndx.fl") {
+  getPersonInfo(nic: "FL-4829105736") {
     fullName
     dateOfBirth
     birthPlace
@@ -247,7 +247,7 @@ query {
 **Sub-query to the Identity Registry** (via Adapter):
 ```graphql
 query {
-  person(nic: "suresh@ndx.fl") {
+  person(nic: "FL-4829105736") {
     fullName
     address
     profession
@@ -257,7 +257,7 @@ query {
 
 The Identity Registry adapter translates this to a REST call:
 ```http
-GET /api/person/suresh@ndx.fl
+GET /api/person/FL-4829105736
 ```
 
 #### 9.4 Authentication
@@ -305,7 +305,7 @@ NDX records the data access event:
 ```json
 {
   "timestamp": "2025-11-27T14:23:45Z",
-  "citizen": "suresh@ndx.fl",
+  "citizen": "FL-4829105736",
   "consumer": "passport-app",
   "purpose": "Passport Application",
   "dataAccessed": ["fullName", "dateOfBirth", "birthPlace", "address", "profession"],
