@@ -134,6 +134,19 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# Known ThunderID 1.1.1 issue: it HTML-escapes the password typed at sign-in
+# (& becomes &amp;) but stores a password it imports as given, so the demo
+# citizen cannot sign in if MOCK_USER_PASSWORD contains & < > ' or ". The
+# password itself is fine, so warn rather than refuse it.
+warn_mock_user_password() {
+    case "$MOCK_USER_PASSWORD" in
+        *[\&\<\>\'\"]*)
+            print_warning "MOCK_USER_PASSWORD contains & < > ' or \". Because of a ThunderID 1.1.1 issue, the demo citizen cannot sign in with it (see SETUP.md)."
+            ;;
+    esac
+}
+warn_mock_user_password
+
 print_info "Starting OpenNDX Farajaland - All Services"
 print_info "==========================================="
 echo ""
@@ -513,6 +526,7 @@ print_success "=========================================="
 echo ""
 print_info "Mock user - Username: suresh"
 print_info "Mock user - Password: $MOCK_USER_PASSWORD"
+warn_mock_user_password
 echo ""
 
 # Start member services
